@@ -23,5 +23,15 @@ def study_guide():
 def quiz():
     return render_template("quiz.html")
 
+
+@app.route("/grade_quiz")
+def grade_quiz():
+    return render_template("grade_quiz.html")
+
+
+@app.route("/new_study_guide")
+def new_study_guide():
+    return render_template("new_study_guide.html")
+
 if __name__ == "__main__":
     app.run(debug=True)
