@@ -2,13 +2,14 @@ from flask import Flask, render_template, request
 import markdown
 
 from agents.study_guide_agent import generate_study_guide
+from model.tutor import sample_data
 
 app = Flask(__name__)
 
 
 @app.route("/")
 def tutor():
-    return render_template("tutor.html")
+    return render_template("tutor.html", subjects=sample_data.subjects)
 
 
 @app.route("/study_guide")
@@ -34,4 +35,4 @@ def new_study_guide():
     return render_template("new_study_guide.html")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5005)

@@ -4,7 +4,29 @@
 
 {% block content %}
 <h1 class="mb-4">Tutor Topics</h1>
-<a href="{{ url_for('study_guide') }}?topic=Pythagorean+Theorem" class="btn btn-primary mb-3">
-    Pythagorean Theorem
-</a>
+
+<div class="accordion" id="subjectsAccordion">
+    {% for subject in subjects %}
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="heading{{ loop.index }}">
+            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
+                {{ subject.name }}
+            </button>
+        </h2>
+        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#subjectsAccordion">
+            <div class="accordion-body">
+                <ul class="list-group">
+                    {% for topic in subject.topics %}
+                    <li class="list-group-item">
+                        <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}">
+                            {{ topic.name }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}
