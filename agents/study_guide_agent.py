@@ -1,11 +1,11 @@
 from langchain_google_vertexai import ChatVertexAI
 
 
-def get_study_guide():
+def generate_study_guide(topic: str) -> str:
     # Create the Gemini model
     model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
 
-    response = model.invoke("Create me a study guide for pythagorean theorem. About 1 page long")
+    response = model.invoke(f"Create me a study guide for {topic}. About 1 page long")
 
     return response.content
 
@@ -15,4 +15,4 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    print(get_study_guide())
+    print(generate_study_guide())

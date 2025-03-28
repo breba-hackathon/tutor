@@ -8,3 +8,5 @@ langgraph
 jsonify
 flask
 google-genai
+flask
+markdown

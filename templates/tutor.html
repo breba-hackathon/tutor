@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}Tutor Home{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Tutor Topics</h1>
+<a href="{{ url_for('study_guide') }}?topic=Pythagorean+Theorem" class="btn btn-primary mb-3">
+    Pythagorean Theorem
+</a>
+{% endblock %}
