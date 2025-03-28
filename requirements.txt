@@ -1,0 +1,10 @@
+kafka-python
+python-dotenv
+google-cloud-aiplatform
+langchain_google_vertexai
+langchain_core
+pydantic
+langgraph
+jsonify
+flask
+google-genai
