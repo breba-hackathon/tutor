@@ -3,6 +3,7 @@ from typing import Literal, TypedDict, NotRequired
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph, MessagesState
 from langgraph.types import Command
@@ -38,15 +39,20 @@ class StudyGuideAgent:
         self.subject = subject
         self.topic = topic
 
+        # Setup persistence
+        self.config = {"configurable": {"thread_id": "1"}}
+        checkpointer = MemorySaver()
+
         self.model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
         builder = StateGraph(State)
         builder.add_node("supervisor", self.supervisor_node)
         builder.add_node(self.study_guide_builder)
         builder.add_node(self.quiz_question_builder)
         builder.add_edge(START, "supervisor")
+        # The llm does not understand instructions pertaining to lifecycle, so kind of have to END for now
         builder.add_edge("supervisor", END)
 
-        self.graph = builder.compile()
+        self.graph = builder.compile(checkpointer=checkpointer)
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
         messages = [
@@ -95,14 +101,14 @@ class StudyGuideAgent:
         model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
         model = model.with_structured_output(QuizQuestion)
 
-        response = model.invoke(messages)
+        question = model.invoke(messages)
 
         return Command(
             update={
                 "messages": [
                     HumanMessage(content="The following message is from quiz_question_builder",
                                  name="quiz_question_builder"),
-                    HumanMessage(content=response.content, name="quiz_question_builder")
+                    HumanMessage(content=question.model_dump_json(), name="quiz_question_builder")
                 ]
             },
             goto="supervisor"
@@ -111,7 +117,7 @@ class StudyGuideAgent:
     def invoke(self, user_input: str):
         final_state = self.graph.invoke({
             "messages": [{"role": "user", "content": user_input}]
-        })
+        }, self.config)
         return final_state["messages"][-1].content
 
 
@@ -121,4 +127,7 @@ if __name__ == "__main__":
     load_dotenv()
     agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
     response = agent.invoke("Generate a study guide")
+    print(response)
+
+    response = agent.invoke("Create a quiz question")
     print(response)
