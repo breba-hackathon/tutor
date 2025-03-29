@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, jsonify
 import markdown
 
 from agents.study_guide_agent import StudyGuideAgent
@@ -26,12 +26,24 @@ def study_guide():
 
 @app.route("/quiz")
 def quiz():
-    return render_template("quiz.html")
+    quiz_questions = [
+        {"question": "What is the result of -3 + (-5)?",
+         "options": ["-8", "8", "-2", "2"],
+         "answer": "A"},
+        # Add more questions here
+    ]
+    return render_template("quiz.html", quiz_questions=quiz_questions)
 
 
-@app.route("/grade_quiz")
+@app.route("/grade_quiz", methods=["POST"])
 def grade_quiz():
-    return render_template("grade_quiz.html")
+    data = request.get_json()
+
+    return jsonify({
+        **data,
+        "correct": data["selected"] == data["answer"],
+        "explanation":  "Some explanation"
+    })
 
 
 @app.route("/new_study_guide")

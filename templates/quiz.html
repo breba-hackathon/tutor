@@ -3,8 +3,90 @@
 {% block title %}Quiz{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Quiz</h1>
-<p>Coming soon...</p>
-<a href="{{ url_for('grade_quiz') }}" class="btn btn-success">Submit</a>
-<a href="{{ url_for('tutor') }}" class="btn btn-secondary">Back to Topics</a>
+    <h1 class="mb-4">Quiz</h1>
+
+    <div id="quiz-container">
+        {% for q in quiz_questions %}
+            {% set q_index = loop.index0 %}
+            <div class="mb-4 question-block"
+                 data-question-index="{{ loop.index0 }}"
+                 data-question='{{ q.question | escape }}'
+                 data-options='{{ q.options | tojson | safe }}'
+                 data-answer='{{ q.answer | escape }}'>
+
+                <p><strong>Q{{ loop.index }}:</strong> {{ q.question }}</p>
+                {% for option in q.options %}
+                    {% set letter = 'ABCD'[loop.index0] %}
+                    <div class="form-check">
+                        <input
+                                class="form-check-input"
+                                type="radio"
+                                name="q{{ q_index }}"
+                                id="q{{ q_index }}_{{ letter }}"
+                                value="{{ letter }}"
+                                onchange="submitAnswer({{ q_index }}, '{{ letter }}')">
+                        <label class="form-check-label option-label" for="q{{ q_index }}_{{ letter }}">
+                            {{ letter }}. {{ option }}
+                        </label>
+                    </div>
+                {% endfor %}
+                <div class="feedback mt-2"></div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <a href="{{ url_for('tutor') }}" class="btn btn-secondary mt-4">Back to Topics</a>
+
+    <script>
+        async function submitAnswer(questionIndex, selected) {
+            const block = document.querySelector(`.question-block[data-question-index='${questionIndex}']`);
+
+            const questionText = block.dataset.question;
+            const options = JSON.parse(block.dataset.options);
+            const correctAnswer = block.dataset.answer;
+
+            const response = await fetch('{{ url_for("grade_quiz") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question_index: questionIndex,
+                    selected: selected,
+                    question: questionText,
+                    options: options,
+                    answer: correctAnswer
+                }),
+            });
+
+            const data = await response.json();
+            const labels = block.querySelectorAll('.option-label');
+            const inputs = block.querySelectorAll('input[type="radio"]');
+
+            // Disable all radio buttons for this question
+            inputs.forEach(input => input.disabled = true);
+
+            // Clear previous highlights
+            labels.forEach(label => {
+                label.classList.remove('text-success', 'fw-bold');
+                label.querySelector('.badge')?.remove();
+            });
+
+            // Highlight correct answer
+            labels.forEach(label => {
+                if (label.textContent.trim().startsWith(data.correct_answer)) {
+                    label.classList.add('text-success', 'fw-bold');
+                    label.innerHTML += ' <span class="badge bg-success">Correct Answer</span>';
+                }
+            });
+
+            const feedback = block.querySelector('.feedback');
+            if (data.correct) {
+                feedback.innerHTML = '<span class="text-success">✅ Correct!</span>';
+            } else {
+                feedback.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}. ${data.explanation}.</span>`;
+            }
+        }
+    </script>
+
 {% endblock %}
