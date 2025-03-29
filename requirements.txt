@@ -2,6 +2,7 @@ kafka-python
 python-dotenv
 google-cloud-aiplatform
 langchain_google_vertexai
+langchain_openai
 langchain_core
 pydantic
 langgraph

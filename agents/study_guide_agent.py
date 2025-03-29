@@ -3,6 +3,7 @@ from typing import Literal, TypedDict, NotRequired
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph, MessagesState
@@ -43,7 +44,8 @@ class StudyGuideAgent:
         self.config = {"configurable": {"thread_id": "1"}}
         checkpointer = MemorySaver()
 
-        self.model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
+        self.model = ChatOpenAI(model="gpt-4o")
+        # self.model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
         builder = StateGraph(State)
         builder.add_node("supervisor", self.supervisor_node)
         builder.add_node(self.study_guide_builder)
@@ -87,7 +89,7 @@ class StudyGuideAgent:
                     HumanMessage(content=response.content, name="study_guide_builder")
                 ]
             },
-            goto=END
+            goto="supervisor"
         )
 
     def quiz_question_builder(self, state: State) -> Command[Literal["supervisor"]]:
@@ -129,5 +131,5 @@ if __name__ == "__main__":
     response = agent.invoke("Generate a study guide")
     print(response)
 
-    response = agent.invoke("Create a quiz question")
+    response = agent.invoke("Create 2 quiz questions")
     print(response)
