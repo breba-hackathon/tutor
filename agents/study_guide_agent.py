@@ -1,7 +1,7 @@
 from langchain_google_vertexai import ChatVertexAI
 
-
 def generate_study_guide(topic: str) -> str:
+
     # Create the Gemini model
     model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
 
@@ -15,4 +15,4 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    print(generate_study_guide())
+    print(generate_study_guide("algebra"))
