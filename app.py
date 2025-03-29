@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 import markdown
 
-from agents.study_guide_agent import generate_study_guide
+from agents.study_guide_agent import StudyGuideAgent
 from model.tutor import sample_data
 
 app = Flask(__name__)
@@ -14,8 +14,12 @@ def tutor():
 
 @app.route("/study_guide")
 def study_guide():
+    subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
-    guide_markdown = generate_study_guide(topic)
+    username = request.args.get("username", "Anonymous")
+
+    agent = StudyGuideAgent(username=username, subject=subject, topic=topic)
+    guide_markdown = agent.invoke("Generate a study guide")
     guide_html = markdown.markdown(guide_markdown)
     return render_template("study_guide.html", topic=topic, study_guide=guide_html)
 

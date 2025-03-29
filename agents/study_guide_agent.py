@@ -1,18 +1,124 @@
+from typing import Literal, TypedDict, NotRequired
+
+from langchain_core.messages import HumanMessage
+from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
+from langgraph.constants import END, START
+from langgraph.graph import StateGraph, MessagesState
+from langgraph.types import Command
+from pydantic import BaseModel, Field
 
-def generate_study_guide(topic: str) -> str:
+from agents.instruction_reader import get_instructions
 
-    # Create the Gemini model
-    model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
 
-    response = model.invoke(f"Create me a study guide for {topic}. About 1 page long")
+class QuizQuestion(BaseModel):
+    question: str = Field(description="The question itself")
+    options: list[str] = Field(description="List of options", min_items=4, max_items=4)
+    answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
 
-    return response.content
+
+class State(MessagesState):
+    study_guide: NotRequired[str]
+    quiz: NotRequired[list[QuizQuestion]]
+
+
+members = ["study_guide_builder", "quiz_question_builder"]
+options = members + ["FINISH"]
+supervisor_prompt = get_instructions("study_guide", members=members)
+
+
+class Route(TypedDict):
+    reason: str
+    next: Literal[*options]
+
+
+class StudyGuideAgent:
+    def __init__(self, username: str, subject: str, topic: str):
+        self.username = username
+        self.subject = subject
+        self.topic = topic
+
+        self.model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
+        builder = StateGraph(State)
+        builder.add_node("supervisor", self.supervisor_node)
+        builder.add_node(self.study_guide_builder)
+        builder.add_node(self.quiz_question_builder)
+        builder.add_edge(START, "supervisor")
+        builder.add_edge("supervisor", END)
+
+        self.graph = builder.compile()
+
+    def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
+        messages = [
+                       {"role": "system", "content": supervisor_prompt},
+                   ] + state["messages"]
+        response = self.model.with_structured_output(Route).invoke(messages)
+        goto = response["next"]
+        if goto == "FINISH":
+            goto = END
+
+        return Command(goto=goto, update={"next": goto})
+
+    def study_guide_builder(self, state: State) -> Command[Literal["supervisor"]]:
+        """Generate a study guide for a given topic. """
+
+        system_prompt = get_instructions("study_guide_builder")
+        messages = [
+                       {"role": "system", "content": system_prompt},
+                   ] + state["messages"]
+        messages.append({"role": "user", "content": f"Create a study guide for {self.topic}. About half page long."})
+
+        model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
+
+        response = model.invoke(messages)
+
+        return Command(
+            update={
+                "study_guide": response.content,
+                "messages": [
+                    HumanMessage(content="The following message is from study_guide_builder",
+                                 name="study_guide_builder"),
+                    HumanMessage(content=response.content, name="study_guide_builder")
+                ]
+            },
+            goto=END
+        )
+
+    def quiz_question_builder(self, state: State) -> Command[Literal["supervisor"]]:
+        """Generate a quiz question when requested"""
+
+        system_prompt = "You are providing a multiple choice question for a study guide mentioned earlier. You will provide 4 options and the correct answer."
+        messages = [
+                       {"role": "system", "content": system_prompt},
+                   ] + state["messages"]
+        messages.append({"role": "user", "content": "Create a quiz question for the study guide"})
+        model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
+        model = model.with_structured_output(QuizQuestion)
+
+        response = model.invoke(messages)
+
+        return Command(
+            update={
+                "messages": [
+                    HumanMessage(content="The following message is from quiz_question_builder",
+                                 name="quiz_question_builder"),
+                    HumanMessage(content=response.content, name="quiz_question_builder")
+                ]
+            },
+            goto="supervisor"
+        )
+
+    def invoke(self, user_input: str):
+        final_state = self.graph.invoke({
+            "messages": [{"role": "user", "content": user_input}]
+        })
+        return final_state["messages"][-1].content
 
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
-
-    print(generate_study_guide("algebra"))
+    agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
+    response = agent.invoke("Generate a study guide")
+    print(response)
