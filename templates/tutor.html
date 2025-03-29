@@ -38,9 +38,10 @@
             <div class="accordion-body">
                 <ul class="list-group">
                     {% for topic in subject.topics %}
-                    <li class="list-group-item">
+                    {% set hue = 0 + (topic.proficiency / 100) * 120 %}
+                    <li class="list-group-item" style="background-color: hsl({{ hue }}, 100%, 75%);">
                         <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}" class="study-guide-link" data-subject="{{ subject.name }}" data-topic="{{ topic.name }}">
-                            {{ topic.name }}
+                            {{ topic.name }} ({{ topic.proficiency }}%)
                         </a>
                     </li>
                     {% endfor %}
@@ -56,7 +57,7 @@
         let username = document.getElementById("username").value;
         let teachingStyle = document.getElementById("teaching-style").value;
 
-        // Update all study guide links with preferences
+        // Change each link to reflect settings
         document.querySelectorAll(".study-guide-link").forEach(link => {
             let subject = link.getAttribute("data-subject");
             let topic = link.getAttribute("data-topic");
