@@ -6,6 +6,12 @@ AI Agents for Personalized Learning &amp; Tutoring
 
 ## Setup instructions
 
+Copy the .env.sample to .env, and then fill it out as you complete the instructions
+```bash
+cp .env.sample .env
+```
+
+
 ```bash
 gcloud config set project <PROJECT_ID>
 ```
@@ -15,7 +21,7 @@ export PROJECT_ID=$(gcloud config get project)
 export SERVICE_ACCOUNT_NAME=$(gcloud compute project-info describe --format="value(defaultServiceAccount)")
 ```
 
-Enable Google Cloud APISs:
+
 ```bash
 gcloud services enable compute.googleapis.com  \
                         aiplatform.googleapis.com \
@@ -33,3 +39,9 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member="serviceAccount:$SERVICE_ACCOUNT_NAME" \
   --role="roles/secretmanager.secretAccessor"
 ```
+
+Generate a service account key:
+```bash
+gcloud iam service-accounts keys create key.json \
+  --iam-account=$SERVICE_ACCOUNT_NAME
+``` 
