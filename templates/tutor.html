@@ -5,6 +5,27 @@
 {% block content %}
 <h1 class="mb-4">Tutor Topics</h1>
 
+<div class="card mb-4 p-3">
+    <form id="preferencesForm">
+        <div class="mb-3">
+            <label for="username" class="form-label">Enter your name:</label>
+            <input type="text" id="username" name="username" class="form-control" placeholder="Your name">
+        </div>
+
+        <div class="mb-3">
+            <label for="teaching-style" class="form-label">Select Teaching Style:</label>
+            <select id="teaching-style" name="teaching_style" class="form-select">
+                <option value="visual">Visual</option>
+                <option value="auditory">Auditory</option>
+                <option value="kinesthetic">Kinesthetic</option>
+                <option value="reading_writing">Reading/Writing</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+    </form>
+</div>
+
 <div class="accordion" id="subjectsAccordion">
     {% for subject in subjects %}
     <div class="accordion-item">
@@ -18,7 +39,7 @@
                 <ul class="list-group">
                     {% for topic in subject.topics %}
                     <li class="list-group-item">
-                        <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}">
+                        <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}" class="study-guide-link" data-subject="{{ subject.name }}" data-topic="{{ topic.name }}">
                             {{ topic.name }}
                         </a>
                     </li>
@@ -29,4 +50,20 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+    function savePreferences() {
+        let username = document.getElementById("username").value;
+        let teachingStyle = document.getElementById("teaching-style").value;
+
+        // Update all study guide links with preferences
+        document.querySelectorAll(".study-guide-link").forEach(link => {
+            let subject = link.getAttribute("data-subject");
+            let topic = link.getAttribute("data-topic");
+            let newUrl = `{{ url_for('study_guide') }}?subject=${encodeURIComponent(subject)}&topic=${encodeURIComponent(topic)}&username=${encodeURIComponent(username)}&teaching_style=${encodeURIComponent(teachingStyle)}`;
+            link.href = newUrl;
+        });
+    }
+</script>
+
 {% endblock %}
