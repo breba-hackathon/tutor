@@ -5,6 +5,13 @@ AI Agents for Personalized Learning &amp; Tutoring
 ![Architecture Diagram](images/flowchart.png)
 
 ## Setup instructions
+### Pre-requisites
+Setup Kafka and run the server
+```bash
+docker pull apache/kafka:4.0.0
+docker run -p 9092:9092 apache/kafka:4.0.0
+```
+
 
 Copy the .env.sample to .env, and then fill it out as you complete the instructions
 ```bash
