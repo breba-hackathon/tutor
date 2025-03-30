@@ -1,6 +1,7 @@
 import json
 
-from flask import Flask, render_template, request, session, jsonify
+from flask import Flask, render_template, request, session, jsonify, send_file
+import io
 import markdown
 
 from agents.study_guide_agent import StudyGuideAgent, STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER
@@ -51,10 +52,19 @@ def grade_quiz():
         "explanation":  "Some explanation"
     })
 
-
 @app.route("/new_study_guide")
 def new_study_guide():
     return render_template("new_study_guide.html")
+
+@app.route('/audio')
+def audio():
+    return render_template('audio.html')
+
+@app.route('/audio/lesson.mp3')
+def serve_audio():
+    with open("audio/lesson.mp3", "rb") as f:
+        audio_data = f.read()
+    return send_file(io.BytesIO(audio_data), mimetype="audio/mpeg")
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5005)

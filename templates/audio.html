@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Audio Lesson{% endblock %}
+
+{% block content %}
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <p class="fs-5">Sample Text</p>
+        </div>
+        <div class="col-md-6">
+            <audio controls>
+                <source src="/audio/lesson.mp3" type="audio/mpeg">
+            </audio>
+        </div>
+    </div>
+{% endblock %}
