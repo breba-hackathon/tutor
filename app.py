@@ -47,10 +47,14 @@ def quiz():
 def grade_quiz():
     data = request.get_json()
 
-    return jsonify({
+    explanation = agent.grade_quiz_question(json.dumps({
         **data,
         "correct": data["selected"] == data["answer"],
-        "explanation":  "Some explanation"
+    }))
+
+    return jsonify({
+        **data,
+        "correct": data["selected"] == data["answer"], "explanation": explanation
     })
 
 
