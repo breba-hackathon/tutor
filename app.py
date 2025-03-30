@@ -3,7 +3,7 @@ import json
 from flask import Flask, render_template, request, session, jsonify
 import markdown
 
-from agents.study_guide_agent import StudyGuideAgent
+from agents.study_guide_agent import StudyGuideAgent, STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER
 from model.tutor import sample_data
 
 app = Flask(__name__)
@@ -24,7 +24,7 @@ def study_guide():
     username = request.args.get("username", "Anonymous")
 
     agent = StudyGuideAgent(username=username, subject=subject, topic=topic)
-    guide_markdown = agent.invoke("Generate a study guide")
+    guide_markdown = agent.invoke(STUDY_GUIDE_BUILDER)
     guide_html = markdown.markdown(guide_markdown)
     return render_template("study_guide.html", topic=topic, study_guide=guide_html)
 
@@ -33,7 +33,7 @@ def study_guide():
 def quiz():
     global agent
     if agent:
-        quiz_question_raw = agent.invoke("Create a quiz question")
+        quiz_question_raw = agent.invoke(QUIZ_QUESTION_BUILDER)
         quiz_question = json.loads(quiz_question_raw)
         quiz_questions = [ quiz_question ]
         return render_template("quiz.html", quiz_questions=quiz_questions)

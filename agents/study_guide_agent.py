@@ -1,7 +1,6 @@
 from typing import Literal, TypedDict, NotRequired
 
 from langchain_core.messages import HumanMessage
-from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
@@ -24,9 +23,11 @@ class State(MessagesState):
     quiz: NotRequired[list[QuizQuestion]]
 
 
-members = ["study_guide_builder", "quiz_question_builder"]
+STUDY_GUIDE_BUILDER = "study_guide_builder"
+QUIZ_QUESTION_BUILDER = "quiz_question_builder"
+members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER]
+
 options = members + ["FINISH"]
-supervisor_prompt = get_instructions("study_guide", members=members)
 
 
 class Route(TypedDict):
@@ -39,6 +40,8 @@ class StudyGuideAgent:
         self.username = username
         self.subject = subject
         self.topic = topic
+
+        self.supervisor_prompt = get_instructions("study_guide", members=members)
 
         # Setup persistence
         self.config = {"configurable": {"thread_id": "1"}}
@@ -57,11 +60,16 @@ class StudyGuideAgent:
         self.graph = builder.compile(checkpointer=checkpointer)
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
-        messages = [
-                       {"role": "system", "content": supervisor_prompt},
-                   ] + state["messages"]
-        response = self.model.with_structured_output(Route).invoke(messages)
-        goto = response["next"]
+        # This allows using deterministic routing, but keeping
+        if state["messages"][-1].content in members:
+            goto = state["messages"][-1].content
+        else:
+            messages = [
+                           {"role": "system", "content": self.supervisor_prompt},
+                       ] + state["messages"]
+            response = self.model.with_structured_output(Route).invoke(messages)
+            goto = response["next"]
+
         if goto == "FINISH":
             goto = END
 
