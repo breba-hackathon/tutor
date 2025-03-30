@@ -1,3 +1,5 @@
+import json
+
 from flask import Flask, render_template, request, session, jsonify
 import markdown
 
@@ -6,6 +8,8 @@ from model.tutor import sample_data
 
 app = Flask(__name__)
 
+# TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
+agent: StudyGuideAgent | None = None
 
 @app.route("/")
 def tutor():
@@ -14,6 +18,7 @@ def tutor():
 
 @app.route("/study_guide")
 def study_guide():
+    global agent
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
     username = request.args.get("username", "Anonymous")
@@ -26,13 +31,14 @@ def study_guide():
 
 @app.route("/quiz")
 def quiz():
-    quiz_questions = [
-        {"question": "What is the result of -3 + (-5)?",
-         "options": ["-8", "8", "-2", "2"],
-         "answer": "A"},
-        # Add more questions here
-    ]
-    return render_template("quiz.html", quiz_questions=quiz_questions)
+    global agent
+    if agent:
+        quiz_question_raw = agent.invoke("Create a quiz question")
+        quiz_question = json.loads(quiz_question_raw)
+        quiz_questions = [ quiz_question ]
+        return render_template("quiz.html", quiz_questions=quiz_questions)
+    else:
+        return "Error: No agent initialized. Go to /study_guide first.", 400
 
 
 @app.route("/grade_quiz", methods=["POST"])
