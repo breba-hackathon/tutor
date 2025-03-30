@@ -12,6 +12,7 @@ app = Flask(__name__)
 # TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
 agent: StudyGuideAgent | None = None
 
+
 @app.route("/")
 def tutor():
     return render_template("tutor.html", subjects=sample_data.subjects)
@@ -36,7 +37,7 @@ def quiz():
     if agent:
         quiz_question_raw = agent.invoke(QUIZ_QUESTION_BUILDER)
         quiz_question = json.loads(quiz_question_raw)
-        quiz_questions = [ quiz_question ]
+        quiz_questions = [quiz_question]
         return render_template("quiz.html", quiz_questions=quiz_questions)
     else:
         return "Error: No agent initialized. Go to /study_guide first.", 400
@@ -52,19 +53,28 @@ def grade_quiz():
         "explanation":  "Some explanation"
     })
 
+
 @app.route("/new_study_guide")
 def new_study_guide():
     return render_template("new_study_guide.html")
 
+
 @app.route('/audio')
 def audio():
     return render_template('audio.html')
+
 
 @app.route('/audio/lesson.mp3')
 def serve_audio():
     with open("audio/lesson.mp3", "rb") as f:
         audio_data = f.read()
     return send_file(io.BytesIO(audio_data), mimetype="audio/mpeg")
+
+
+@app.route("/progress", methods=["POST"])
+def progress():
+    return "Good Job", 200
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5005)
