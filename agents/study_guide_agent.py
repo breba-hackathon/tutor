@@ -25,7 +25,8 @@ class State(MessagesState):
 
 STUDY_GUIDE_BUILDER = "study_guide_builder"
 QUIZ_QUESTION_BUILDER = "quiz_question_builder"
-members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER]
+QUIZ_GRADER = "quiz_grader"
+members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER]
 
 options = members + ["FINISH"]
 
@@ -53,6 +54,7 @@ class StudyGuideAgent:
         builder.add_node("supervisor", self.supervisor_node)
         builder.add_node(self.study_guide_builder)
         builder.add_node(self.quiz_question_builder)
+        builder.add_node(self.quiz_grader)
         builder.add_edge(START, "supervisor")
         # The llm does not understand instructions pertaining to lifecycle, so kind of have to END for now
         builder.add_edge("supervisor", END)
@@ -97,7 +99,7 @@ class StudyGuideAgent:
                     HumanMessage(content=response.content, name="study_guide_builder")
                 ]
             },
-            goto="supervisor"
+            goto=END
         )
 
     def quiz_question_builder(self, state: State) -> Command[Literal["supervisor"]]:
@@ -121,7 +123,30 @@ class StudyGuideAgent:
                     HumanMessage(content=question.model_dump_json(), name="quiz_question_builder")
                 ]
             },
-            goto="supervisor"
+            goto=END
+        )
+
+    def quiz_grader(self, state: State) -> Command[Literal["supervisor"]]:
+        """Generates an explanation for your answer"""
+
+        system_prompt = "You are providing an explanation for answers to quiz questions, and why the selected answer was correct/incorrect. Do not use markdown and output in plain text without any formatting. IMPORTANT! You are not in a chat with a person."
+        messages = [
+                       {"role": "system", "content": system_prompt},
+                   ] + state["messages"]
+        messages.append({"role": "user", "content": "Provide an explanation for this question"})
+        model = ChatVertexAI(model_name="gemini-1.5-pro", location='us-west1')
+
+        explanation = model.invoke(messages)
+
+        return Command(
+            update={
+                "messages": [
+                    HumanMessage(content="The following message is from quiz_grader",
+                                 name="quiz_grader"),
+                    HumanMessage(content=explanation.content, name="quiz_grader")
+                ]
+            },
+            goto=END
         )
 
     def invoke(self, user_input: str):
@@ -130,14 +155,22 @@ class StudyGuideAgent:
         }, self.config)
         return final_state["messages"][-1].content
 
+    def grade_quiz_question(self, quiz_question: str):
+        final_state = self.graph.invoke({
+            "messages": [{"role": "user", "content": f"Here is my quiz question: {quiz_question}"}]
+        }, self.config)
+        return final_state["messages"][-1].content
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
     agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
-    response = agent.invoke("Generate a study guide")
+    response = agent.grade_quiz_question("What is 2+2? The answer is: 3. This is not correct.")
     print(response)
 
-    response = agent.invoke("Create 2 quiz questions")
-    print(response)
+    # response = agent.invoke("Generate a study guide")
+    # print(response)
+
+    # response = agent.invoke("Create 2 quiz questions")
+    # print(response)
