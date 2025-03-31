@@ -3,100 +3,137 @@
 {% block title %}Tutor Home{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Tutor Topics</h1>
+    <h1 class="mb-4">Tutor Topics</h1>
 
-<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 1); z-index: 9999; display: flex; align-items: center; justify-content: center; color: black; font-size: 1.5rem; visibility: hidden;">
-    <img src="https://media2.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif?cid=6c09b9529maj0w7grvvr25m14w1mtl7szjjeyqjytadilxuw&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=g" alt="Loading..." style="width: 100px; height: 100px;">
-</div>
-
-
-<div class="card mb-4 p-3">
-    <form id="preferencesForm">
-        <div class="mb-3">
-            <label for="username" class="form-label">Enter your name:</label>
-            <input type="text" id="username" name="username" class="form-control" placeholder="Your name">
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Select Teaching Style:</label>
-            <div>
-                <input type="radio" id="visual" name="teaching_style" value="visual">
-                <label for="visual">Visual</label>
-            </div>
-            <div>
-                <input type="radio" id="auditory" name="teaching_style" value="auditory">
-                <label for="auditory">Auditory</label>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
-    </form>
-</div>
-
-<div class="accordion" id="subjectsAccordion">
-    {% for subject in subjects %}
-    <div class="accordion-item">
-        <h2 class="accordion-header" id="heading{{ loop.index }}">
-            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
-                {{ subject.name }}
-            </button>
-        </h2>
-        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#subjectsAccordion">
-            <div class="accordion-body">
-                <ul class="list-group">
-                    {% for topic in subject.topics %}
-                    {% set hue = 0 + (topic.proficiency / 100) * 120 %}
-                    <li class="list-group-item" style="background-color: hsl({{ hue }}, 100%, 75%);">
-                        <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}" class="study-guide-link" data-subject="{{ subject.name }}" data-topic="{{ topic.name }}">
-                            {{ topic.name }} ({{ topic.proficiency }}%)
-                        </a>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
+    <div id="loadingOverlay"
+         style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 1); z-index: 9999; display: flex; align-items: center; justify-content: center; color: black; font-size: 1.5rem; visibility: hidden;">
+        <img src="https://media2.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif?cid=6c09b9529maj0w7grvvr25m14w1mtl7szjjeyqjytadilxuw&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=g"
+             alt="Loading..." style="width: 100px; height: 100px;">
     </div>
-    {% endfor %}
-</div>
 
-<script>
-    function savePreferences() {
-        let username = document.getElementById("username").value;
-        let teachingStyle = document.getElementById("teaching-style").value;
 
-        // Change each link to reflect settings
-        document.querySelectorAll(".study-guide-link").forEach(link => {
-            let subject = link.getAttribute("data-subject");
-            let topic = link.getAttribute("data-topic");
-            let newUrl = `{{ url_for('study_guide') }}?subject=${encodeURIComponent(subject)}&topic=${encodeURIComponent(topic)}&username=${encodeURIComponent(username)}&teaching_style=${encodeURIComponent(teachingStyle)}`;
-            link.href = newUrl;
-        });
-    }
+    <div class="card mb-4 p-3">
+        <form id="preferencesForm">
+            <div class="mb-3">
+                <label for="username" class="form-label">Enter your name:</label>
+                <input type="text" id="username" name="username" class="form-control" placeholder="Your name">
+            </div>
 
-    document.addEventListener("DOMContentLoaded", function () {
-        let overlay = document.getElementById("loadingOverlay");
+            <div class="mb-3">
+                <label class="form-label">Select Teaching Style:</label>
+                <div>
+                    <input type="radio" id="visual" name="teaching_style" value="visual">
+                    <label for="visual">Visual</label>
+                </div>
+                <div>
+                    <input type="radio" id="audio" name="teaching_style" value="audio">
+                    <label for="audio">Audio</label>
+                </div>
+            </div>
 
-        overlay.style.display = "none";
-        overlay.style.visibility = "hidden";
-        overlay.style.opacity = "0";
+            <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+            <div id="responseMessage" class="mt-2 text-success" style="display: none;"></div>
+        </form>
+    </div>
 
-        document.querySelectorAll(".study-guide-link").forEach(link => {
-            link.addEventListener("click", function () {
-                overlay.style.display = "flex";
-                overlay.style.visibility = "visible";
-                overlay.style.opacity = "1";
-            });
-        });
-    });
+    <div class="accordion" id="subjectsAccordion">
+        {% for subject in subjects %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading{{ loop.index }}">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}"
+                            aria-expanded="{{ 'true' if loop.first else 'false' }}"
+                            aria-controls="collapse{{ loop.index }}">
+                        {{ subject.name }}
+                    </button>
+                </h2>
+                <div id="collapse{{ loop.index }}"
+                     class="accordion-collapse collapse {% if loop.first %}show{% endif %}"
+                     aria-labelledby="heading{{ loop.index }}" data-bs-parent="#subjectsAccordion">
+                    <div class="accordion-body">
+                        <ul class="list-group">
+                            {% for topic in subject.topics %}
+                                {% set hue = 0 + (topic.proficiency / 100) * 120 %}
+                                <li class="list-group-item" style="background-color: hsl({{ hue }}, 100%, 75%);">
+                                    <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}"
+                                       class="study-guide-link">
+                                        {{ topic.name }} ({{ topic.proficiency }}%)
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
 
-    window.addEventListener("pageshow", function (event) {
-        if (event.persisted) {
+    <script>
+        function savePreferences() {
+            let username = document.getElementById("username").value;
+            let teachingStyle = document.querySelector('input[name="teaching_style"]:checked')?.value;
+
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    teachingStyle: teachingStyle
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json(); // Or .text(), depending on what your backend returns
+                })
+                .then(data => {
+                    console.log('Success:', data);
+                    showMessage(data.message, "text-success");
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage(error, "text-success");
+                });
+        }
+
+        function showMessage(message, className) {
+            const msgEl = document.getElementById("responseMessage");
+            msgEl.textContent = message;
+            msgEl.className = `mt-2 ${className}`;
+            msgEl.style.display = "block";
+
+            setTimeout(() => {
+                msgEl.style.display = "none";
+            }, 2000); // 2 second
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
             let overlay = document.getElementById("loadingOverlay");
+
             overlay.style.display = "none";
             overlay.style.visibility = "hidden";
             overlay.style.opacity = "0";
-        }
-    });
-</script>
+
+            document.querySelectorAll(".study-guide-link").forEach(link => {
+                link.addEventListener("click", function () {
+                    overlay.style.display = "flex";
+                    overlay.style.visibility = "visible";
+                    overlay.style.opacity = "1";
+                });
+            });
+        });
+
+        window.addEventListener("pageshow", function (event) {
+            if (event.persisted) {
+                let overlay = document.getElementById("loadingOverlay");
+                overlay.style.display = "none";
+                overlay.style.visibility = "hidden";
+                overlay.style.opacity = "0";
+            }
+        });
+    </script>
 
 {% endblock %}

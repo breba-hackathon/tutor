@@ -10,6 +10,7 @@ from model.tutor import sample_data
 from services.agent_pub_sub import listen_to_study_progress, start_pub_sub_consumer
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-123'
 
 # TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
 agent: StudyGuideAgent | None = None
@@ -23,6 +24,18 @@ start_pub_sub_consumer()
 def tutor():
     return render_template("tutor.html", subjects=sample_data.subjects)
 
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()  # Expecting JSON from JS fetch
+
+    username = data.get('username')
+    teaching_style = data.get('teachingStyle')
+
+    # Save to session
+    session['username'] = username
+    session['teaching_style'] = teaching_style
+
+    return jsonify({'message': f"Preferences saved for {username}"})
 
 @app.route("/study_guide")
 def study_guide():
@@ -30,7 +43,7 @@ def study_guide():
     global progress_agent
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
-    username = request.args.get("username", "Anonymous")
+    username = session.get('username', "Anonymous")
 
     # TODO: username, subject, topic, should be passed in at invoke time, not at initialization
     agent = StudyGuideAgent(username=username, subject=subject, topic=topic)
