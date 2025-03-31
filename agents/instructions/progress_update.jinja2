@@ -1,0 +1,15 @@
+Given a list of quiz questions on {{subject}} {{topic}} provide a summary knowledge retention and next recommended
+difficulty level.
+If it appears that the user has learned the topic, increase level by 1.
+You will never increase level by more than 1.
+10 is the maximum level.
+If it appears that the user is struggling to answer the questions, decrease level by 1.
+It is ok to keep the same level when there is a mix of correct and incorrect answers.
+
+
+Here is the list of quiz questions:
+{% for question in quiz_questions %}
+    {{question}}
+{% endfor %}
+
+Currently the user is on level {{level}}
