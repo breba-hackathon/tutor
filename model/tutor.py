@@ -1,36 +1,47 @@
+from typing import Literal
+
 from pydantic import BaseModel
-from typing import List
 
-
+#TODO: get study progress agent to use the same models
 class Topic(BaseModel):
     name: str
-    proficiency: int
+    quiz_questions: list[str] = []
+    level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    summary: str = ""
 
 
 class Subject(BaseModel):
     name: str
-    topics: List[Topic]
+    topics: dict[str, Topic]
 
 
 class TutorContent(BaseModel):
-    subjects: List[Subject]
+    subjects: dict[str, Subject]
 
 
-sample_data = TutorContent(subjects=[
-    Subject(name="Pre-Algebra", topics=[
-        Topic(name="Integers", proficiency=100),
-        Topic(name="Fractions", proficiency=25),
-        Topic(name="Decimals", proficiency=67),
-    ]),
-    Subject(name="Algebra", topics=[
-        Topic(name="Linear Equations", proficiency=99),
-        Topic(name="Quadratic Equations", proficiency=43),
-        Topic(name="Exponents", proficiency=3),
-    ]),
-    Subject(name="Geometry", topics=[
-        Topic(name="Pythagorean Theorem", proficiency=12),
-        Topic(name="Angles", proficiency=0),
-        Topic(name="Circles", proficiency=6),
-    ]),
-])
-
+sample_data = TutorContent(subjects={
+    "Pre-Algebra": Subject(
+        name="Pre-Algebra",
+        topics={
+            "Integers": Topic(name="Integers", level=10),
+            "Fractions": Topic(name="Fractions", level=3),
+            "Decimals": Topic(name="Decimals", level=7),
+        }
+    ),
+    "Algebra": Subject(
+        name="Algebra",
+        topics={
+            "Linear Equations": Topic(name="Linear Equations", level=10),
+            "Quadratic Equations": Topic(name="Quadratic Equations", level=5),
+            "Exponents": Topic(name="Exponents", level=1),
+        }
+    ),
+    "Geometry": Subject(
+        name="Geometry",
+        topics={
+            "Pythagorean Theorem": Topic(name="Pythagorean Theorem", level=2),
+            "Angles": Topic(name="Angles", level=1),
+            "Circles": Topic(name="Circles", level=1),
+        }
+    ),
+})

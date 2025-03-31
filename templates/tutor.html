@@ -37,7 +37,7 @@
     </div>
 
     <div class="accordion" id="subjectsAccordion">
-        {% for subject in subjects %}
+        {% for subject in subjects.values() %}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading{{ loop.index }}">
                     <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button"
@@ -52,12 +52,13 @@
                      aria-labelledby="heading{{ loop.index }}" data-bs-parent="#subjectsAccordion">
                     <div class="accordion-body">
                         <ul class="list-group">
-                            {% for topic in subject.topics %}
-                                {% set hue = 0 + (topic.proficiency / 100) * 120 %}
+                            {% for topic in subject.topics.values() %}
+                                {% set proficiency = topic.level * 10 %}
+                                {% set hue = 0 + (proficiency / 100) * 120 %}
                                 <li class="list-group-item" style="background-color: hsl({{ hue }}, 100%, 75%);">
                                     <a href="{{ url_for('study_guide') }}?subject={{ subject.name | urlencode }}&topic={{ topic.name | urlencode }}"
                                        class="study-guide-link">
-                                        {{ topic.name }} ({{ topic.proficiency }}%)
+                                        {{ topic.name }} ({{ proficiency }}%)
                                     </a>
                                 </li>
                             {% endfor %}
