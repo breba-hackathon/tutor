@@ -6,11 +6,15 @@ import markdown
 
 from agents.study_guide_agent import StudyGuideAgent, STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER
 from model.tutor import sample_data
+from services.agent_pub_sub import listen_to_study_progress
 
 app = Flask(__name__)
 
 # TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
 agent: StudyGuideAgent | None = None
+
+
+listen_to_study_progress("http://localhost:5005/progress")
 
 
 @app.route("/")
@@ -77,6 +81,7 @@ def serve_audio():
 
 @app.route("/progress", methods=["POST"])
 def progress():
+    print(request.json)
     return "Good Job", 200
 
 

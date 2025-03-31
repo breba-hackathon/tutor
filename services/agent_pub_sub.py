@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 # Constants
 KAFKA_BROKER = 'localhost:9092'
-TOPIC = 'study_progress'
+STUDY_PROGRESS_TOPIC = 'study_progress'
 
 # Global subscriber list
 _subscribers: List[str] = []
@@ -44,7 +44,7 @@ def update_study_progress(event: StudyProgressEvent) -> None:
     """
     Publish a new event to the 'study_progress' Kafka topic.
     """
-    _producer.send(TOPIC, event.model_dump())
+    _producer.send(STUDY_PROGRESS_TOPIC, event.model_dump())
     _producer.flush()
 
 def _start_async_consumer():
@@ -53,7 +53,7 @@ def _start_async_consumer():
 async def _consume_and_forward_async():
     loop = asyncio.get_event_loop()
     consumer = KafkaConsumer(
-        TOPIC,
+        STUDY_PROGRESS_TOPIC,
         bootstrap_servers=KAFKA_BROKER,
         value_deserializer=lambda m: json.loads(m.decode('utf-8')),
         group_id='study_progress_forwarder'

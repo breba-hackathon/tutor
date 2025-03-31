@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, MessagesState
 from pydantic import BaseModel
 
 from agents.instruction_reader import get_instructions
+from services.agent_pub_sub import update_study_progress, StudyProgressEvent
 
 
 class Progress(BaseModel):
@@ -50,8 +51,6 @@ class StudyProgressAgent:
         self.subject = subject
         self.topic = topic
 
-        self.supervisor_prompt = get_instructions("study_progress")
-
         thread_id = user_mapping.get(self.username, get_next_thread_id())
         # Setup persistence
         self.config = {"configurable": {"thread_id": thread_id}}
@@ -62,9 +61,11 @@ class StudyProgressAgent:
         builder = StateGraph(State)
         builder.add_node("entry_node", self.entry_node)
         builder.add_node("progress_update", self.progress_update)
+        builder.add_node("publish_update", self.publish_update)
         builder.add_edge(START, "entry_node")
         builder.add_edge("entry_node", "progress_update")
-        builder.add_edge("progress_update", END)
+        builder.add_edge("progress_update", "publish_update")
+        builder.add_edge("publish_update", END)
 
         self.graph = builder.compile(checkpointer=checkpointer)
 
@@ -99,6 +100,14 @@ class StudyProgressAgent:
         current_topic.summary = response.progress_summary
 
         return {"subjects": subjects}
+
+    def publish_update(self, state: State):
+        subjects = state["subjects"]
+        topic = subjects.get(state["subject"]).topics.get(state["topic"])
+        update_study_progress(
+            StudyProgressEvent(username=self.username, subject=state["subject"], topic=state["topic"], update=topic.summary))
+
+        return state
 
     def inject_graded_quiz_question(self, graded_quiz_question: str, subject: str, topic: str):
         final_state = self.graph.invoke({
