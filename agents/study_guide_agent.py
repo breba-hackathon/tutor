@@ -1,3 +1,4 @@
+import time
 from typing import Literal, TypedDict, NotRequired
 
 from langchain_core.messages import HumanMessage
@@ -10,6 +11,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
+from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, start_listening, listen_to_quiz_question
 
 
 class QuizQuestion(BaseModel):
@@ -20,7 +22,8 @@ class QuizQuestion(BaseModel):
 
 class State(MessagesState):
     study_guide: NotRequired[str]
-    quiz: NotRequired[list[QuizQuestion]]
+    question_to_grade: str
+    explanation: str
 
 
 STUDY_GUIDE_BUILDER = "study_guide_builder"
@@ -55,7 +58,9 @@ class StudyGuideAgent:
         builder.add_node(self.study_guide_builder)
         builder.add_node(self.quiz_question_builder)
         builder.add_node(self.quiz_grader)
+        builder.add_node(self.publish_quiz_question)
         builder.add_edge(START, "supervisor")
+        builder.add_edge("quiz_grader", "publish_quiz_question")
         # The llm does not understand instructions pertaining to lifecycle, so kind of have to END for now
         builder.add_edge("supervisor", END)
 
@@ -126,28 +131,34 @@ class StudyGuideAgent:
             goto=END
         )
 
-    def quiz_grader(self, state: State) -> Command[Literal["supervisor"]]:
-        """Generates an explanation for your answer"""
-
+    def quiz_grader(self, state: State):
+        """Generates an explanation for your question/answer"""
         system_prompt = "You are providing an explanation for answers to quiz questions, and why the selected answer was correct/incorrect. Do not use markdown and output in plain text without any formatting. IMPORTANT! You are not in a chat with a person."
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
-        messages.append({"role": "user", "content": "Provide an explanation for this question"})
+        messages.append(
+            {"role": "user", "content": "Provide an explanation for this question: " + state["question_to_grade"]})
         model = ChatVertexAI(model_name="gemini-1.5-pro", location='us-west1')
 
-        explanation = model.invoke(messages)
+        explanation_response = model.invoke(messages)
 
-        return Command(
-            update={
-                "messages": [
-                    HumanMessage(content="The following message is from quiz_grader",
-                                 name="quiz_grader"),
-                    HumanMessage(content=explanation.content, name="quiz_grader")
-                ]
-            },
-            goto=END
-        )
+        return {
+            "explanation": explanation_response.content,
+            "messages": [
+                HumanMessage(content="The following message is from quiz_grader",
+                             name="quiz_grader"),
+                HumanMessage(content=explanation_response.content, name="quiz_grader")
+            ]
+        }
+
+    def publish_quiz_question(self, state: State) -> Command[Literal["supervisor"]]:
+        """Publishes the quiz question/answer and explanation to other agents"""
+        payload = state["question_to_grade"] + "\n" + state["explanation"]
+        update_quiz_question(
+            QuizQuestionEvent(username=self.username, subject=self.subject, topic=self.topic, quiz_question=payload))
+
+        return Command(goto=END)
 
     def invoke(self, user_input: str):
         final_state = self.graph.invoke({
@@ -156,19 +167,32 @@ class StudyGuideAgent:
         return final_state["messages"][-1].content
 
     def grade_quiz_question(self, quiz_question: str):
+        """
+        Runs the quiz grader graph.
+        We will use deterministic routing for this case as well.
+        We will use string data because this is agent ot agent communication and agents don't care about structure
+        """
         final_state = self.graph.invoke({
-            "messages": [{"role": "user", "content": f"Here is my quiz question: {quiz_question}"}]
+            "question_to_grade": quiz_question,
+            "messages": [{"role": "user", "content": QUIZ_GRADER}]
         }, self.config)
         return final_state["messages"][-1].content
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
+
+    start_listening()
+    listen_to_quiz_question("http://localhost:5005/echo")
+
     agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
     response = agent.grade_quiz_question("What is 2+2? The answer is: 3. This is not correct.")
     print(response)
 
+    # Wait for the publish event to follow through
+    time.sleep(5)
     # response = agent.invoke("Generate a study guide")
     # print(response)
 
