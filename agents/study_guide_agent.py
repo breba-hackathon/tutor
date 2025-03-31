@@ -11,7 +11,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
-from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, start_listening, listen_to_quiz_question
+from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, start_pub_sub_consumer, listen_to_quiz_question
 
 
 class QuizQuestion(BaseModel):
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    start_listening()
+    start_pub_sub_consumer()
     listen_to_quiz_question("http://localhost:5005/echo")
 
     agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")

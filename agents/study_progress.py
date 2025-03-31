@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, MessagesState
 from pydantic import BaseModel
 
 from agents.instruction_reader import get_instructions
-from services.agent_pub_sub import update_study_progress, StudyProgressEvent
+from services.agent_pub_sub import update_study_progress, StudyProgressEvent, listen_to_quiz_question
 
 
 class Progress(BaseModel):
@@ -37,6 +37,7 @@ class State(MessagesState):
 
 user_mapping: dict[str, int] = {}
 
+listen_to_quiz_question("http://localhost:5005/agent/update_progress")
 
 def get_next_thread_id():
     if len(user_mapping) == 0:
@@ -46,13 +47,12 @@ def get_next_thread_id():
 
 
 class StudyProgressAgent:
-    def __init__(self, username: str, subject: str, topic: str):
+    def __init__(self, username: str):
         self.username = username
-        self.subject = subject
-        self.topic = topic
 
         thread_id = user_mapping.get(self.username, get_next_thread_id())
         # Setup persistence
+        # TODO: move this out of the contructor. Same agent instance can be used for multiple users
         self.config = {"configurable": {"thread_id": thread_id}}
         checkpointer = MemorySaver()
 
@@ -121,7 +121,7 @@ class StudyProgressAgent:
 
 if __name__ == "__main__":
     load_dotenv()
-    agent = StudyProgressAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
+    agent = StudyProgressAgent(username="John Doe")
 
     # Test entry node
     response = agent.entry_node({"messages": [], "subjects":{}, "graded_quiz_question": "Question 1", "subject": "Pre-Algebra", "topic": "Integers"})

@@ -39,7 +39,7 @@ class QuizQuestionEvent(BaseModel):
     quiz_question: str
 
 
-def start_listening():
+def start_pub_sub_consumer():
     """
     Start the consumer in a background thread.
     """
@@ -117,9 +117,11 @@ async def _post_event(session: aiohttp.ClientSession, endpoint: str, event: dict
 
 
 if __name__ == "__main__":
-    start_listening()
+    start_pub_sub_consumer()
     listen_to_study_progress("http://localhost:5005/echo")
     listen_to_quiz_question("http://localhost:5005/echo")
+    # This tests that we will send the same message to multiple endpoints
+    listen_to_study_progress("http://localhost:5005/echo")
 
     time.sleep(2)
     event = StudyProgressEvent(username="Study Progress Alice", subject="math", topic="algebra",
