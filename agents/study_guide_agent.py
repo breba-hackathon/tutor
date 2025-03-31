@@ -11,8 +11,8 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
+from agents.user_store import get_thread_id
 from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, start_pub_sub_consumer, listen_to_quiz_question
-
 
 class QuizQuestion(BaseModel):
     question: str = Field(description="The question itself")
@@ -24,6 +24,9 @@ class State(MessagesState):
     study_guide: NotRequired[str]
     question_to_grade: str
     explanation: str
+    username: str
+    subject: str
+    topic: str
 
 
 STUDY_GUIDE_BUILDER = "study_guide_builder"
@@ -41,14 +44,9 @@ class Route(TypedDict):
 
 class StudyGuideAgent:
     def __init__(self, username: str, subject: str, topic: str):
-        self.username = username
-        self.subject = subject
-        self.topic = topic
-
         self.supervisor_prompt = get_instructions("study_guide", members=members)
 
         # Setup persistence
-        self.config = {"configurable": {"thread_id": "1"}}
         checkpointer = MemorySaver()
 
         self.model = ChatOpenAI(model="gpt-4o")
@@ -89,7 +87,7 @@ class StudyGuideAgent:
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
-        messages.append({"role": "user", "content": f"Create a study guide for {self.topic}. About half page long."})
+        messages.append({"role": "user", "content": f"Create a study guide for subject=`{state["subject"]}` and topic=`{state["topic"]}`. About half page long."})
 
         model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
 
@@ -153,29 +151,50 @@ class StudyGuideAgent:
         }
 
     def publish_quiz_question(self, state: State) -> Command[Literal["supervisor"]]:
-        """Publishes the quiz question/answer and explanation to other agents"""
+        """
+        Publishes the quiz question/answer and explanation to other agents
+        The payload is plain text because agent to agent communication is greate with unstructured data.
+        """
         payload = state["question_to_grade"] + "\n" + state["explanation"]
         update_quiz_question(
-            QuizQuestionEvent(username=self.username, subject=self.subject, topic=self.topic, quiz_question=payload))
+            QuizQuestionEvent(username=state["username"], subject=state["subject"], topic=state["topic"], quiz_question=payload))
 
         return Command(goto=END)
 
-    def invoke(self, user_input: str):
+    def build_study_guide(self, username: str, subject: str, topic: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
-            "messages": [{"role": "user", "content": user_input}]
-        }, self.config)
+            "username": username, "subject": subject, "topic": topic,
+            "messages": [{"role": "user", "content": STUDY_GUIDE_BUILDER}]
+        }, config)
+        return final_state["study_guide"]
+
+    def build_quiz_question(self, username: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
+        final_state = self.graph.invoke({
+            "messages": [{"role": "user", "content": QUIZ_QUESTION_BUILDER}]
+        }, config)
         return final_state["messages"][-1].content
 
-    def grade_quiz_question(self, quiz_question: str):
+
+    def invoke(self, username: str, user_input: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
+        final_state = self.graph.invoke({
+            "messages": [{"role": "user", "content": user_input}]
+        }, config)
+        return final_state["messages"][-1].content
+
+    def grade_quiz_question(self, username, quiz_question: str):
         """
         Runs the quiz grader graph.
         We will use deterministic routing for this case as well.
         We will use string data because this is agent ot agent communication and agents don't care about structure
         """
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "question_to_grade": quiz_question,
             "messages": [{"role": "user", "content": QUIZ_GRADER}]
-        }, self.config)
+        }, config)
         return final_state["messages"][-1].content
 
 

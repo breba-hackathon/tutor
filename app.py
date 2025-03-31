@@ -10,6 +10,7 @@ from model.tutor import sample_data
 from services.agent_pub_sub import listen_to_study_progress, start_pub_sub_consumer
 
 app = Flask(__name__)
+# TODO: use secret storage for this
 app.secret_key = 'your-secret-key-123'
 
 # TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
@@ -48,7 +49,7 @@ def study_guide():
     # TODO: username, subject, topic, should be passed in at invoke time, not at initialization
     agent = StudyGuideAgent(username=username, subject=subject, topic=topic)
     progress_agent = StudyProgressAgent(username=username)
-    guide_markdown = agent.invoke(STUDY_GUIDE_BUILDER)
+    guide_markdown = agent.build_study_guide(username, subject, topic)
     guide_html = markdown.markdown(guide_markdown)
     return render_template("study_guide.html", topic=topic, study_guide=guide_html)
 
@@ -57,7 +58,7 @@ def study_guide():
 def quiz():
     global agent
     if agent:
-        quiz_question_raw = agent.invoke(QUIZ_QUESTION_BUILDER)
+        quiz_question_raw = agent.build_quiz_question(session.get('username', "Anonymous"))
         quiz_question = json.loads(quiz_question_raw)
         quiz_questions = [quiz_question]
         return render_template("quiz.html", quiz_questions=quiz_questions)
@@ -69,7 +70,7 @@ def quiz():
 def grade_quiz():
     data = request.get_json()
 
-    explanation = agent.grade_quiz_question(json.dumps({
+    explanation = agent.grade_quiz_question(session.get('username', "Anonymous"), json.dumps({
         **data,
         "correct": data["selected"] == data["answer"],
     }))
