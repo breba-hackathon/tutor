@@ -1,4 +1,5 @@
 import json
+import time
 
 from flask import Flask, render_template, request, session, jsonify, send_file
 import io
@@ -12,7 +13,6 @@ app = Flask(__name__)
 
 # TODO: This could be a mapping of topicId to thread_id, this would offload concurrency issues to database that keeps agent state
 agent: StudyGuideAgent | None = None
-
 
 listen_to_study_progress("http://localhost:5005/progress")
 
@@ -79,10 +79,10 @@ def serve_audio():
     return send_file(io.BytesIO(audio_data), mimetype="audio/mpeg")
 
 
-@app.route("/progress", methods=["POST"])
-def progress():
-    print(request.json)
-    return "Good Job", 200
+@app.route("/echo", methods=["POST"])
+def echo():
+    text = request.get_data().decode("utf-8")
+    return text, 200
 
 
 if __name__ == "__main__":
