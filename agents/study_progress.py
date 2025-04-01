@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, MessagesState
 from pydantic import BaseModel
 
 from agents.instruction_reader import get_instructions
+from agents.user_store import get_thread_id
 from services.agent_pub_sub import update_study_progress, StudyProgressEvent, listen_to_quiz_question
 
 
@@ -29,32 +30,19 @@ class Subject(BaseModel):
 
 
 class State(MessagesState):
+    username: str
     subjects: dict[str, Subject]
     graded_quiz_question: str
     subject: str
     topic: str
 
 
-# TODO: user user_store
-user_mapping: dict[str, int] = {}
-
 listen_to_quiz_question("http://localhost:5005/agent/update_progress")
-
-def get_next_thread_id():
-    if len(user_mapping) == 0:
-        return 1
-    else:
-        return max(user_mapping.values()) + 1
 
 
 class StudyProgressAgent:
-    def __init__(self, username: str):
-        self.username = username
-
-        thread_id = user_mapping.get(self.username, get_next_thread_id())
+    def __init__(self, ):
         # Setup persistence
-        # TODO: move this out of the contructor. Same agent instance can be used for multiple users
-        self.config = {"configurable": {"thread_id": thread_id}}
         checkpointer = MemorySaver()
 
         self.model = ChatOpenAI(model="gpt-4o")
@@ -100,7 +88,8 @@ class StudyProgressAgent:
                                   quiz_questions=current_topic.quiz_questions,
                                   level=current_topic.level)
         messages = [{"role": "system", "content": prompt},
-                    {"role": "user", "content": f"Provide learning summary and next level given my last quiz questions and answers"}]
+                    {"role": "user",
+                     "content": f"Provide learning summary and next level given my last quiz questions and answers"}]
         response = self.model.with_structured_output(Progress).invoke(messages)
         current_topic.level = response.next_level
         current_topic.summary = response.progress_summary
@@ -111,16 +100,19 @@ class StudyProgressAgent:
         subjects = state["subjects"]
         topic = subjects.get(state["subject"]).topics.get(state["topic"])
         update_study_progress(
-            StudyProgressEvent(username=self.username, subject=state["subject"], topic=state["topic"], update=topic.summary))
+            StudyProgressEvent(username=state["username"], subject=state["subject"], topic=state["topic"],
+                               update=topic.summary))
 
         return state
 
-    def inject_graded_quiz_question(self, graded_quiz_question: str, subject: str, topic: str):
+    def inject_graded_quiz_question(self, username: str, graded_quiz_question: str, subject: str, topic: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
+            "username": username,
             "subject": subject,
             "topic": topic,
             "graded_quiz_question": graded_quiz_question
-        }, self.config)
+        }, config)
 
         return final_state
 
@@ -130,10 +122,18 @@ if __name__ == "__main__":
     agent = StudyProgressAgent(username="John Doe")
 
     # Test entry node
-    response = agent.entry_node({"messages": [], "subjects":{}, "graded_quiz_question": "Question 1", "subject": "Pre-Algebra", "topic": "Integers"})
-    response = agent.entry_node({"messages": [], "subjects": response["subjects"], "graded_quiz_question": "Question 2", "subject": "Pre-Algebra", "topic": "Integers"})
-    response = agent.entry_node({"messages": [], "subjects": response["subjects"], "graded_quiz_question": "Decimals Question 1", "subject": "Pre-Algebra", "topic": "Decimals"})
-    response = agent.entry_node({"messages": [], "subjects": response["subjects"], "graded_quiz_question": "Equations Question 1", "subject": "Algebra", "topic": "Equations"})
+    response = agent.entry_node(
+        {"username": "John Doe", "messages": [], "subjects": {}, "graded_quiz_question": "Question 1",
+         "subject": "Pre-Algebra", "topic": "Integers"})
+    response = agent.entry_node(
+        {"username": "John Doe", "messages": [], "subjects": response["subjects"], "graded_quiz_question": "Question 2",
+         "subject": "Pre-Algebra", "topic": "Integers"})
+    response = agent.entry_node({"username": "John Doe", "messages": [], "subjects": response["subjects"],
+                                 "graded_quiz_question": "Decimals Question 1", "subject": "Pre-Algebra",
+                                 "topic": "Decimals"})
+    response = agent.entry_node({"username": "John Doe", "messages": [], "subjects": response["subjects"],
+                                 "graded_quiz_question": "Equations Question 1", "subject": "Algebra",
+                                 "topic": "Equations"})
     assert response["subjects"].get("Pre-Algebra").topics.get("Integers").quiz_questions == ["Question 1", "Question 2"]
     assert response["subjects"].get("Pre-Algebra").topics.get("Integers").level == 1
     assert response["subjects"].get("Pre-Algebra").topics.get("Integers").name == "Integers"
@@ -161,9 +161,12 @@ if __name__ == "__main__":
     assert "Simplify 3/6" in instructions
 
     # Test progress update
-    agent.inject_graded_quiz_question("{question: 2+2, answer: 3, correct: false}", "Pre-Algebra", "Integers")
-    agent.inject_graded_quiz_question("{question: 5*4, answer: 20, correct: true}", "Pre-Algebra", "Integers")
-    response = agent.inject_graded_quiz_question("{question: 0.4+0.3, answer: 0.7, correct: true}", "Pre-Algebra",
+    agent.inject_graded_quiz_question("John Doe", "{question: 2+2, answer: 3, correct: false}", "Pre-Algebra",
+                                      "Integers")
+    agent.inject_graded_quiz_question("John Doe", "{question: 5*4, answer: 20, correct: true}", "Pre-Algebra",
+                                      "Integers")
+    response = agent.inject_graded_quiz_question("John Doe", "{question: 0.4+0.3, answer: 0.7, correct: true}",
+                                                 "Pre-Algebra",
                                                  "Decimals")
     assert response["subjects"].get("Pre-Algebra").topics.get("Integers").summary is not None
     assert response["subjects"].get("Pre-Algebra").topics.get("Decimals").summary is not None
