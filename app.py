@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-123'
 
 study_guide_agent_instance: StudyGuideAgent = StudyGuideAgent()
-progress_agent: StudyProgressAgent | None = None
+progress_agent: StudyProgressAgent = StudyProgressAgent()
 
 # Start the pub sub consumer so that agents can listen to and publish to events
 start_pub_sub_consumer()
@@ -43,11 +43,10 @@ def login():
 
 @app.route("/study_guide")
 def study_guide():
-    global progress_agent
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
     username = session.get('username', "Anonymous")
-    progress_agent = StudyProgressAgent(username=username)
+
     guide_markdown = study_guide_agent_instance.find_existing_study_guide_or_create(username, subject, topic)
     guide_html = markdown.markdown(guide_markdown)
     return render_template("study_guide.html", topic=topic, study_guide=guide_html)
@@ -99,7 +98,7 @@ def serve_audio():
 @app.route('/agent/update_progress', methods=["POST"])
 def update_progress():
     data = request.get_json()
-    progress_agent.inject_graded_quiz_question(data["quiz_question"], data["subject"], data["topic"])
+    progress_agent.inject_graded_quiz_question(data["username"], data["quiz_question"], data["subject"], data["topic"])
 
     return "OK", 200
 
