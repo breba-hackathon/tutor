@@ -9,24 +9,13 @@ from pydantic import BaseModel
 
 from agents.instruction_reader import get_instructions
 from agents.user_store import get_thread_id
+from model.tutor import Subject, Topic
 from services.agent_pub_sub import update_study_progress, StudyProgressEvent, listen_to_quiz_question
 
 
 class Progress(BaseModel):
     next_level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     progress_summary: str
-
-
-class Topic(BaseModel):
-    name: str
-    quiz_questions: list[str]
-    level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    summary: str
-
-
-class Subject(BaseModel):
-    name: str
-    topics: dict[str, Topic]
 
 
 class State(MessagesState):
@@ -119,7 +108,7 @@ class StudyProgressAgent:
 
 if __name__ == "__main__":
     load_dotenv()
-    agent = StudyProgressAgent(username="John Doe")
+    agent = StudyProgressAgent()
 
     # Test entry node
     response = agent.entry_node(
