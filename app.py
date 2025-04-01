@@ -104,6 +104,13 @@ def update_progress():
     return "OK", 200
 
 
+@app.route('/agent/update_study_guides', methods=["POST"])
+def update_study_guides():
+    data = request.get_json()
+    study_guide_agent_instance.update_study_guides(data["username"], data["subject"], data["topic"], data["update"])
+    return "OK", 200
+
+
 @app.route("/echo", methods=["POST"])
 def echo():
     text = request.get_data().decode("utf-8")

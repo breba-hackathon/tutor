@@ -12,25 +12,10 @@ from pydantic import BaseModel, Field
 from agents.instruction_reader import get_instructions
 from agents.user_store import get_thread_id
 from model.tutor import Subject, TutorContent, Topic
-from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent
+from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, listen_to_study_progress
 
-
-class QuizQuestion(BaseModel):
-    question: str = Field(description="The question itself")
-    # options: list[str] = Field(description="List of exactly 4 options", min_items=4, max_items=4)
-    options: list[str] = Field(description="List of exactly 4 options")
-    answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
-
-
-class State(MessagesState):
-    username: str
-    tutor_content: NotRequired[TutorContent]
-    study_guide: NotRequired[str]
-    question_to_grade: NotRequired[str]
-    explanation: NotRequired[str]
-    subject: NotRequired[str]
-    topic: NotRequired[str]
-
+# This will listen to study_progress topic and call the endpoint specified
+listen_to_study_progress("http://localhost:5005/agent/update_study_guides")
 
 STUDY_GUIDE_BUILDER = "study_guide_builder"
 EXISTING_STUDY_GUIDE = "existing_study_guide"
@@ -41,9 +26,27 @@ members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER, EXISTING_STU
 options = members + ["FINISH"]
 
 
+class QuizQuestion(BaseModel):
+    question: str = Field(description="The question itself")
+    # options: list[str] = Field(description="List of exactly 4 options", min_items=4, max_items=4)
+    options: list[str] = Field(description="List of exactly 4 options")
+    answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
+
+
 class Route(TypedDict):
     reason: str
     next: Literal[*options]
+
+
+class State(MessagesState):
+    username: str
+    tutor_content: NotRequired[TutorContent]
+    study_guide: NotRequired[str]
+    question_to_grade: NotRequired[str]
+    explanation: NotRequired[str]
+    subject: NotRequired[str]
+    topic: NotRequired[str]
+    progress_summary: NotRequired[str]
 
 
 class StudyGuideAgent:
@@ -64,7 +67,8 @@ class StudyGuideAgent:
         builder.add_node(self.publish_quiz_question)
         builder.add_edge(START, "supervisor")
         builder.add_edge("quiz_grader", "publish_quiz_question")
-        builder.add_conditional_edges("existing_study_guide", self.has_study_guide, {True: END, False: "study_guide_builder"})
+        builder.add_conditional_edges("existing_study_guide", self.has_study_guide,
+                                      {True: END, False: "study_guide_builder"})
         # The llm does not understand instructions pertaining to lifecycle, so kind of have to END for now
         builder.add_edge("supervisor", END)
 
@@ -144,7 +148,8 @@ class StudyGuideAgent:
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
-        messages.append({"role": "user", "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question"})
+        messages.append({"role": "user",
+                         "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question"})
         model = ChatOpenAI(model="gpt-4o")
         model = model.with_structured_output(QuizQuestion)
 
@@ -194,14 +199,6 @@ class StudyGuideAgent:
 
         return Command(goto=END)
 
-    def build_study_guide(self, username: str, subject: str, topic: str):
-        config = {"configurable": {"thread_id": get_thread_id(username)}}
-        final_state = self.graph.invoke({
-            "username": username, "subject": subject, "topic": topic,
-            "messages": [{"role": "user", "content": STUDY_GUIDE_BUILDER}]
-        }, config)
-        return final_state["study_guide"]
-
     def find_existing_study_guide_or_create(self, username: str, subject: str, topic: str):
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
@@ -236,6 +233,16 @@ class StudyGuideAgent:
             "messages": [{"role": "user", "content": QUIZ_GRADER}]
         }, config)
         return final_state["messages"][-1].content
+
+    def update_study_guides(self, username: str, subject: str, topic: str, progress_update: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
+        final_state = self.graph.invoke({
+            "username": username, "subject": subject, "topic": topic,
+            "messages": [{"role": "user",
+                          "content": f"When building a study guide for subject: {subject}, topic: {topic}, take into account this progress update: {progress_update}"},
+                         {"role": "user", "content": STUDY_GUIDE_BUILDER}]
+        }, config)
+        return final_state["study_guide"]
 
 
 if __name__ == "__main__":
