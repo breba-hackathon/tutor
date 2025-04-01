@@ -90,7 +90,7 @@ class StudyProgressAgent:
         topic = subjects.get(state["subject"]).topics.get(state["topic"])
         update_study_progress(
             StudyProgressEvent(username=state["username"], subject=state["subject"], topic=state["topic"],
-                               update=topic.summary))
+                               update=topic.summary, level=topic.level))
 
         return state
 

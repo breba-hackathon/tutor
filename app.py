@@ -8,8 +8,7 @@ from flask import Flask, render_template, request, session, jsonify, send_file
 from agents.study_guide_agent import StudyGuideAgent
 from agents.study_progress import StudyProgressAgent
 from agents.user_store import default_tutor_content
-from model.tutor import sample_data
-from services.agent_pub_sub import start_pub_sub_consumer
+from services.agent_pub_sub import start_pub_sub_consumer, StudyProgressEvent
 
 load_dotenv()
 app = Flask(__name__)
@@ -121,7 +120,8 @@ def update_progress():
 @app.route('/agent/update_study_guides', methods=["POST"])
 def update_study_guides():
     data = request.get_json()
-    study_guide_agent_instance.update_study_guides(data["username"], data["subject"], data["topic"], data["update"])
+    event = StudyProgressEvent(**data)
+    study_guide_agent_instance.update_study_guides(event)
     return "OK", 200
 
 

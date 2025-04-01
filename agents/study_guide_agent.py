@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
 from agents.user_store import get_thread_id, default_tutor_content
-from model.tutor import Subject, TutorContent, Topic
-from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, listen_to_study_progress
+from model.tutor import TutorContent
+from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, listen_to_study_progress, StudyProgressEvent
 
 # This will listen to study_progress topic and call the endpoint specified
 listen_to_study_progress("http://localhost:5005/agent/update_study_guides")
@@ -46,6 +46,7 @@ class State(MessagesState):
     explanation: NotRequired[str]
     subject: NotRequired[str]
     topic: NotRequired[str]
+    level: NotRequired[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
     progress_summary: NotRequired[str]
 
 
@@ -140,6 +141,9 @@ class StudyGuideAgent:
         tutor_content = state.get("tutor_content", TutorContent(subjects={}))
         topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
         topic.study_guide = response.content
+        # Don't know of a better place to do this. This node should be a update_topic
+        if state.get("level"):
+            topic.level = state["level"]
 
         return Command(
             update={
@@ -162,7 +166,7 @@ class StudyGuideAgent:
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
         messages.append({"role": "user",
-                         "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question"})
+                         "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question. For math questions use numbers and symbols more than words, but throw in a word problem sometimes."})
         model = ChatOpenAI(model="gpt-4o")
         model = model.with_structured_output(QuizQuestion)
 
@@ -247,12 +251,12 @@ class StudyGuideAgent:
         }, config)
         return final_state["messages"][-1].content
 
-    def update_study_guides(self, username: str, subject: str, topic: str, progress_update: str):
-        config = {"configurable": {"thread_id": get_thread_id(username)}}
+    def update_study_guides(self, event: StudyProgressEvent) -> str:
+        config = {"configurable": {"thread_id": get_thread_id(event.username)}}
         final_state = self.graph.invoke({
-            "username": username, "subject": subject, "topic": topic,
+            "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level,
             "messages": [{"role": "user",
-                          "content": f"When building a study guide for subject: {subject}, topic: {topic}, take into account this progress update: {progress_update}"},
+                          "content": f"When building a study guide for subject: {event.subject}, topic: {event.topic}, take into account this progress update: {event.update}"},
                          {"role": "user", "content": STUDY_GUIDE_BUILDER}]
         }, config)
         return final_state["study_guide"]
@@ -265,7 +269,6 @@ class StudyGuideAgent:
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    from services.agent_pub_sub import start_pub_sub_consumer, listen_to_quiz_question
     import time
 
     load_dotenv()

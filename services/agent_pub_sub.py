@@ -2,7 +2,7 @@ import asyncio
 import json
 import threading
 import time
-from typing import List
+from typing import List, Literal
 
 import aiohttp
 from kafka import KafkaConsumer, KafkaProducer
@@ -30,6 +30,7 @@ class StudyProgressEvent(BaseModel):
     subject: str
     topic: str
     update: str
+    level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
 
 
 class QuizQuestionEvent(BaseModel):
