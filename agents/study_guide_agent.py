@@ -1,4 +1,3 @@
-import time
 from typing import Literal, TypedDict, NotRequired
 
 from langchain_core.messages import HumanMessage
@@ -12,27 +11,32 @@ from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
 from agents.user_store import get_thread_id
-from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, start_pub_sub_consumer, listen_to_quiz_question
+from model.tutor import Subject, TutorContent, Topic
+from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent
+
 
 class QuizQuestion(BaseModel):
     question: str = Field(description="The question itself")
-    options: list[str] = Field(description="List of options", min_items=4, max_items=4)
+    # options: list[str] = Field(description="List of exactly 4 options", min_items=4, max_items=4)
+    options: list[str] = Field(description="List of exactly 4 options")
     answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
 
 
 class State(MessagesState):
-    study_guide: NotRequired[str]
-    question_to_grade: str
-    explanation: str
     username: str
-    subject: str
-    topic: str
+    tutor_content: NotRequired[TutorContent]
+    study_guide: NotRequired[str]
+    question_to_grade: NotRequired[str]
+    explanation: NotRequired[str]
+    subject: NotRequired[str]
+    topic: NotRequired[str]
 
 
 STUDY_GUIDE_BUILDER = "study_guide_builder"
+EXISTING_STUDY_GUIDE = "existing_study_guide"
 QUIZ_QUESTION_BUILDER = "quiz_question_builder"
 QUIZ_GRADER = "quiz_grader"
-members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER]
+members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER, EXISTING_STUDY_GUIDE]
 
 options = members + ["FINISH"]
 
@@ -43,7 +47,7 @@ class Route(TypedDict):
 
 
 class StudyGuideAgent:
-    def __init__(self, username: str, subject: str, topic: str):
+    def __init__(self):
         self.supervisor_prompt = get_instructions("study_guide", members=members)
 
         # Setup persistence
@@ -54,11 +58,13 @@ class StudyGuideAgent:
         builder = StateGraph(State)
         builder.add_node("supervisor", self.supervisor_node)
         builder.add_node(self.study_guide_builder)
+        builder.add_node(self.existing_study_guide)
         builder.add_node(self.quiz_question_builder)
         builder.add_node(self.quiz_grader)
         builder.add_node(self.publish_quiz_question)
         builder.add_edge(START, "supervisor")
         builder.add_edge("quiz_grader", "publish_quiz_question")
+        builder.add_conditional_edges("existing_study_guide", self.has_study_guide, {True: END, False: "study_guide_builder"})
         # The llm does not understand instructions pertaining to lifecycle, so kind of have to END for now
         builder.add_edge("supervisor", END)
 
@@ -80,21 +86,47 @@ class StudyGuideAgent:
 
         return Command(goto=goto, update={"next": goto})
 
-    def study_guide_builder(self, state: State) -> Command[Literal["supervisor"]]:
+    def has_study_guide(self, state: State) -> bool:
+        return state.get("study_guide") is not None
+
+    def existing_study_guide(self, state: State):
+        tutor_content = state.get("tutor_content", TutorContent(subjects={}))
+        topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
+        if topic.study_guide:
+            return {
+                "tutor_content": tutor_content,
+                "study_guide": topic.study_guide,
+                "messages": [
+                    HumanMessage(
+                        content=f"Below is the study guide for subject: {state['subject']}, topic: {state['topic']}",
+                        name="study_guide_builder"),
+                    HumanMessage(content=topic.study_guide, name="study_guide_builder")
+                ]
+            }
+        else:
+            return {"tutor_content": tutor_content, "study_guide": None}
+
+    def study_guide_builder(self, state: State) -> Command[Literal["supervisor", END]]:
         """Generate a study guide for a given topic. """
 
         system_prompt = get_instructions("study_guide_builder")
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
-        messages.append({"role": "user", "content": f"Create a study guide for subject=`{state["subject"]}` and topic=`{state["topic"]}`. About half page long."})
+        messages.append({"role": "user",
+                         "content": f"Create a study guide for subject=`{state["subject"]}` and topic=`{state["topic"]}`. About half page long."})
 
         model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
 
         response = model.invoke(messages)
 
+        tutor_content = state.get("tutor_content", TutorContent(subjects={}))
+        topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
+        topic.study_guide = response.content
+
         return Command(
             update={
+                "tutor_content": state["tutor_content"],
                 "study_guide": response.content,
                 "messages": [
                     HumanMessage(content="The following message is from study_guide_builder",
@@ -112,8 +144,8 @@ class StudyGuideAgent:
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
-        messages.append({"role": "user", "content": "Create a quiz question for the study guide"})
-        model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
+        messages.append({"role": "user", "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question"})
+        model = ChatOpenAI(model="gpt-4o")
         model = model.with_structured_output(QuizQuestion)
 
         question = model.invoke(messages)
@@ -157,7 +189,8 @@ class StudyGuideAgent:
         """
         payload = state["question_to_grade"] + "\n" + state["explanation"]
         update_quiz_question(
-            QuizQuestionEvent(username=state["username"], subject=state["subject"], topic=state["topic"], quiz_question=payload))
+            QuizQuestionEvent(username=state["username"], subject=state["subject"], topic=state["topic"],
+                              quiz_question=payload))
 
         return Command(goto=END)
 
@@ -169,13 +202,20 @@ class StudyGuideAgent:
         }, config)
         return final_state["study_guide"]
 
+    def find_existing_study_guide_or_create(self, username: str, subject: str, topic: str):
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
+        final_state = self.graph.invoke({
+            "username": username, "subject": subject, "topic": topic,
+            "messages": [{"role": "user", "content": EXISTING_STUDY_GUIDE}]
+        }, config)
+        return final_state["study_guide"]
+
     def build_quiz_question(self, username: str):
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "messages": [{"role": "user", "content": QUIZ_QUESTION_BUILDER}]
         }, config)
         return final_state["messages"][-1].content
-
 
     def invoke(self, username: str, user_input: str):
         config = {"configurable": {"thread_id": get_thread_id(username)}}
@@ -200,6 +240,8 @@ class StudyGuideAgent:
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
+    from services.agent_pub_sub import start_pub_sub_consumer, listen_to_quiz_question
+    import time
 
     load_dotenv()
 

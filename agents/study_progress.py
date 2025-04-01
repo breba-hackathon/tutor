@@ -35,6 +35,7 @@ class State(MessagesState):
     topic: str
 
 
+# TODO: user user_store
 user_mapping: dict[str, int] = {}
 
 listen_to_quiz_question("http://localhost:5005/agent/update_progress")
@@ -70,9 +71,14 @@ class StudyProgressAgent:
         self.graph = builder.compile(checkpointer=checkpointer)
 
     def entry_node(self, state: State):
+        """
+        This node sets up the state for the study progress agent by adding quiz question to the state.
+        If subject and topic don't it exist, it will create them.
+        """
         subject = state["subject"]
         topic = state["topic"]
         graded_quiz_question = state["graded_quiz_question"]
+
         current_topic = Topic(name=topic, level=1, quiz_questions=[], summary="")
         current_subject = Subject(name=subject, topics={topic: current_topic})
 
