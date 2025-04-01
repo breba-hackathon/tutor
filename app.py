@@ -50,16 +50,19 @@ def study_guide():
     progress_agent = StudyProgressAgent(username=username)
     guide_markdown = study_guide_agent_instance.find_existing_study_guide_or_create(username, subject, topic)
     guide_html = markdown.markdown(guide_markdown)
-    return render_template("study_guide.html", topic=topic, study_guide=guide_html)
+    return render_template("study_guide.html", subject=subject, topic=topic, study_guide=guide_html)
 
 
 @app.route("/quiz")
 def quiz():
+    subject = request.args.get("subject", "Unknown Subject")
+    topic = request.args.get("topic", "Unknown Topic")
+
     if study_guide_agent_instance:
         quiz_question_raw = study_guide_agent_instance.build_quiz_question(session.get('username', "Anonymous"))
         quiz_question = json.loads(quiz_question_raw)
         quiz_questions = [quiz_question]
-        return render_template("quiz.html", quiz_questions=quiz_questions)
+        return render_template("quiz.html", quiz_questions=quiz_questions, subject=subject, topic=topic)
     else:
         return "Error: No agent initialized. Go to /study_guide first.", 400
 

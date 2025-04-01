@@ -35,7 +35,8 @@
         {% endfor %}
     </div>
 
-    <a href="{{ url_for('quiz') }}" class="btn btn-primary mt-4">Next Question</a>
+    <a href="#" class="btn btn-primary mt-4" onclick="window.location.reload(true);">Next Question</a>
+    <a href="{{ url_for('study_guide', subject=subject, topic=topic) }}" class="btn btn-secondary mt-4">Back to Study Guide</a>
     <a href="{{ url_for('tutor') }}" class="btn btn-secondary mt-4">Back to Topics</a>
 
     <script>

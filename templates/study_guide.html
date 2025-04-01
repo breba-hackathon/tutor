@@ -6,6 +6,6 @@
 <div class="mb-4">
     {{ study_guide | safe }}
 </div>
-<a href="{{ url_for('quiz') }}" class="btn btn-success">Take Quiz</a>
+<a href="{{ url_for('quiz', subject=subject, topic=topic) }}" class="btn btn-success">Take Quiz</a>
 <a href="{{ url_for('tutor') }}" class="btn btn-secondary ms-2">Back to Topics</a>
 {% endblock %}
