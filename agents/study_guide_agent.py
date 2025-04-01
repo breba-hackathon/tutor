@@ -10,7 +10,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
-from agents.user_store import get_thread_id
+from agents.user_store import get_thread_id, default_tutor_content
 from model.tutor import Subject, TutorContent, Topic
 from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, listen_to_study_progress
 
@@ -59,13 +59,15 @@ class StudyGuideAgent:
         self.model = ChatOpenAI(model="gpt-4o")
         # self.model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
         builder = StateGraph(State)
+        builder.add_node("init_data", self.init_data)
         builder.add_node("supervisor", self.supervisor_node)
         builder.add_node(self.study_guide_builder)
         builder.add_node(self.existing_study_guide)
         builder.add_node(self.quiz_question_builder)
         builder.add_node(self.quiz_grader)
         builder.add_node(self.publish_quiz_question)
-        builder.add_edge(START, "supervisor")
+        builder.add_edge(START, "init_data")
+        builder.add_edge("init_data", "supervisor")
         builder.add_edge("quiz_grader", "publish_quiz_question")
         builder.add_conditional_edges("existing_study_guide", self.has_study_guide,
                                       {True: END, False: "study_guide_builder"})
@@ -73,6 +75,12 @@ class StudyGuideAgent:
         builder.add_edge("supervisor", END)
 
         self.graph = builder.compile(checkpointer=checkpointer)
+
+    def init_data(self, state: State):
+        if state.get("tutor_content"):
+            return state
+        else:
+            return {"tutor_content": default_tutor_content(state["username"])}
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
         # This allows using deterministic routing, but keeping
@@ -94,7 +102,12 @@ class StudyGuideAgent:
         return state.get("study_guide") is not None
 
     def existing_study_guide(self, state: State):
-        tutor_content = state.get("tutor_content", TutorContent(subjects={}))
+        """
+        This node is used to check if the study guide already exists for the topic and subject.
+        It will set the state["study_guide"] if one exists.
+        Otherwise, it will clear state["study_guide"].
+        """
+        tutor_content = state.get("tutor_content")
         topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
         if topic.study_guide:
             return {
@@ -111,7 +124,7 @@ class StudyGuideAgent:
             return {"tutor_content": tutor_content, "study_guide": None}
 
     def study_guide_builder(self, state: State) -> Command[Literal["supervisor", END]]:
-        """Generate a study guide for a given topic. """
+        """Generate a study guide for a given subject and topic."""
 
         system_prompt = get_instructions("study_guide_builder")
         messages = [
@@ -244,6 +257,11 @@ class StudyGuideAgent:
         }, config)
         return final_state["study_guide"]
 
+    def get_tutor_content(self, username: str) -> TutorContent:
+        config = {"configurable": {"thread_id": get_thread_id(username)}}
+        content = self.graph.get_state(config).values.get("tutor_content")
+        return content
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -252,11 +270,11 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    start_pub_sub_consumer()
-    listen_to_quiz_question("http://localhost:5005/echo")
+    # start_pub_sub_consumer()
+    # listen_to_quiz_question("http://localhost:5005/echo")
 
-    agent = StudyGuideAgent(username="John Doe", subject="Pre-Algebra", topic="Integers")
-    response = agent.grade_quiz_question("What is 2+2? The answer is: 3. This is not correct.")
+    agent = StudyGuideAgent()
+    response = agent.grade_quiz_question("John Doe", "What is 2+2? The answer is: 3. This is not correct.")
     print(response)
 
     # Wait for the publish event to follow through

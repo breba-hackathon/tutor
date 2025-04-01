@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, session, jsonify, send_file
 
 from agents.study_guide_agent import StudyGuideAgent
 from agents.study_progress import StudyProgressAgent
+from agents.user_store import default_tutor_content
 from model.tutor import sample_data
 from services.agent_pub_sub import start_pub_sub_consumer
 
@@ -24,7 +25,18 @@ start_pub_sub_consumer()
 
 @app.route("/")
 def tutor():
-    return render_template("tutor.html", subjects=sample_data.subjects)
+    username = session.get('username', None)
+    teaching_style = session.get('teaching_style', None)
+
+    stored_tutor_content = study_guide_agent_instance.get_tutor_content(username)
+    tutor_content = stored_tutor_content or default_tutor_content(username)
+
+    return render_template(
+        "tutor.html",
+        subjects=tutor_content.subjects,
+        username=username,
+        teaching_style=teaching_style
+    )
 
 
 @app.route("/login", methods=["POST"])

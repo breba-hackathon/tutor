@@ -16,29 +16,25 @@
         <form id="preferencesForm">
             <div class="mb-3">
                 <label for="username" class="form-label">Enter your name:</label>
-                <input type="text" id="username" name="username" class="form-control" placeholder="Your name">
+                <input type="text" id="username" name="username" class="form-control" placeholder="Your name" value="{{ username or '' }}">
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Select Teaching Style:</label>
                 <div>
-                    <input type="radio" id="visual" name="teaching_style" value="visual">
+                    <input type="radio" id="visual" name="teaching_style" value="visual"  {% if teaching_style == 'visual' or not teaching_style %}checked{% endif %}>
                     <label for="visual">Visual</label>
                 </div>
                 <div>
-                    <input type="radio" id="audio" name="teaching_style" value="audio">
+                    <input type="radio" id="audio" name="teaching_style" value="audio" {% if teaching_style == 'audio' %}checked{% endif %}>
                     <label for="audio">Audio</label>
                 </div>
             </div>
 
             <div class="d-flex gap-2" style="text-align: center">
                 <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
-                <div id="responseMessage" class="text-success" style="opacity: 0;">Preferences saved for Ermokay</div>
+                <div id="responseMessage" class="text-success" style="opacity: 0;">Preferences saved for Ermolay</div>
             </div>
-
-
-
-
         </form>
     </div>
 
@@ -98,23 +94,11 @@
                 })
                 .then(data => {
                     console.log('Success:', data);
-                    showMessage(data.message, "text-success");
+                    window.location.reload();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showMessage(error, "text-success");
                 });
-        }
-
-        function showMessage(message, className) {
-            const msgEl = document.getElementById("responseMessage");
-            msgEl.textContent = message;
-            msgEl.className = `mt-2 ${className}`;
-            msgEl.style.opacity = 1;
-
-            setTimeout(() => {
-                msgEl.style.opacity = 0;
-            }, 2000); // 2 seconds
         }
 
         document.addEventListener("DOMContentLoaded", function () {
