@@ -31,6 +31,7 @@ class QuizQuestion(BaseModel):
     # options: list[str] = Field(description="List of exactly 4 options", min_items=4, max_items=4)
     options: list[str] = Field(description="List of exactly 4 options")
     answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
+    level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 class Route(TypedDict):
@@ -42,6 +43,7 @@ class State(MessagesState):
     username: str
     tutor_content: NotRequired[TutorContent]
     study_guide: NotRequired[str]
+    quiz_question: NotRequired[QuizQuestion]
     question_to_grade: NotRequired[str]
     explanation: NotRequired[str]
     subject: NotRequired[str]
@@ -114,6 +116,7 @@ class StudyGuideAgent:
             return {
                 "tutor_content": tutor_content,
                 "study_guide": topic.study_guide,
+                "level": topic.level,
                 "messages": [
                     HumanMessage(
                         content=f"Below is the study guide for subject: {state['subject']}, topic: {state['topic']}",
@@ -148,7 +151,8 @@ class StudyGuideAgent:
         return Command(
             update={
                 "tutor_content": state["tutor_content"],
-                "study_guide": response.content,
+                "study_guide": topic.study_guide,
+                "level": topic.level,
                 "messages": [
                     HumanMessage(content="The following message is from study_guide_builder",
                                  name="study_guide_builder"),
@@ -161,12 +165,12 @@ class StudyGuideAgent:
     def quiz_question_builder(self, state: State) -> Command[Literal["supervisor"]]:
         """Generate a quiz question when requested"""
 
-        system_prompt = "You are providing a multiple choice question for a study guide mentioned earlier. You will provide 4 options and the correct answer."
+        system_prompt = "You are providing a multiple choice question for a study guide mentioned earlier. You will provide 4 options and the correct answer. But do not repeat questions. Every time come up with a new question. For math questions use numbers and symbols more than words, but throw in a word problem sometimes."
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
         messages.append({"role": "user",
-                         "content": "Create a quiz question for the study guide. But do not repeat questions. Every time come up with a new question. For math questions use numbers and symbols more than words, but throw in a word problem sometimes."})
+                         "content": f"Create a quiz question for the study guide. Make the difficulty level {state.get('level')} out of 10"})
         model = ChatOpenAI(model="gpt-4o")
         model = model.with_structured_output(QuizQuestion)
 
@@ -174,6 +178,7 @@ class StudyGuideAgent:
 
         return Command(
             update={
+                "quiz_question": question,
                 "messages": [
                     HumanMessage(content="The following message is from quiz_question_builder",
                                  name="quiz_question_builder"),
@@ -224,12 +229,12 @@ class StudyGuideAgent:
         }, config)
         return final_state["study_guide"]
 
-    def build_quiz_question(self, username: str):
+    def build_quiz_question(self, username: str) -> QuizQuestion:
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "messages": [{"role": "user", "content": QUIZ_QUESTION_BUILDER}]
         }, config)
-        return final_state["messages"][-1].content
+        return final_state["quiz_question"]
 
     def invoke(self, username: str, user_input: str):
         config = {"configurable": {"thread_id": get_thread_id(username)}}

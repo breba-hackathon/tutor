@@ -14,7 +14,10 @@
                  data-options='{{ q.options | tojson | safe }}'
                  data-answer='{{ q.answer | escape }}'>
 
-                <p><strong>Q{{ loop.index }}:</strong> {{ q.question }}</p>
+                <p>
+                    <strong>Q{{ loop.index }}:</strong> {{ q.question }}<br>
+                    <span class="badge bg-info text-dark">Difficulty: {{ q.level }}</span>
+                </p>
                 {% for option in q.options %}
                     {% set letter = 'ABCD'[loop.index0] %}
                     <div class="form-check">
@@ -36,7 +39,8 @@
     </div>
 
     <a href="#" class="btn btn-primary mt-4" onclick="window.location.reload(true);">Next Question</a>
-    <a href="{{ url_for('study_guide', subject=subject, topic=topic) }}" class="btn btn-secondary mt-4">Back to Study Guide</a>
+    <a href="{{ url_for('study_guide', subject=subject, topic=topic) }}" class="btn btn-secondary mt-4">Back to Study
+        Guide</a>
     <a href="{{ url_for('tutor') }}" class="btn btn-secondary mt-4">Back to Topics</a>
 
     <script>

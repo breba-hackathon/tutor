@@ -69,8 +69,7 @@ def quiz():
     topic = request.args.get("topic", "Unknown Topic")
 
     if study_guide_agent_instance:
-        quiz_question_raw = study_guide_agent_instance.build_quiz_question(session.get('username', "Anonymous"))
-        quiz_question = json.loads(quiz_question_raw)
+        quiz_question = study_guide_agent_instance.build_quiz_question(session.get('username', "Anonymous"))
         quiz_questions = [quiz_question]
         return render_template("quiz.html", quiz_questions=quiz_questions, subject=subject, topic=topic)
     else:
