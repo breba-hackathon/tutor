@@ -92,10 +92,6 @@ def grade_quiz():
     })
 
 
-@app.route("/new_study_guide")
-def new_study_guide():
-    return render_template("new_study_guide.html")
-
 
 @app.route('/audio')
 def audio():
