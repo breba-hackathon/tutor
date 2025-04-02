@@ -10,6 +10,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from agents.instruction_reader import get_instructions
+from agents.study_guide_builder_react import invoke_study_guide_builder_agent
 from agents.user_store import get_thread_id, default_tutor_content
 from model.tutor import TutorContent
 from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, listen_to_study_progress, StudyProgressEvent
@@ -43,6 +44,7 @@ class State(MessagesState):
     username: str
     tutor_content: NotRequired[TutorContent]
     study_guide: NotRequired[str]
+    audio_file_location: NotRequired[str]
     quiz_question: NotRequired[QuizQuestion]
     question_to_grade: NotRequired[str]
     explanation: NotRequired[str]
@@ -117,6 +119,7 @@ class StudyGuideSupervisorAgent:
                 "tutor_content": tutor_content,
                 "study_guide": topic.study_guide,
                 "level": topic.level,
+                "progress_summary": topic.summary,
                 "messages": [
                     HumanMessage(
                         content=f"Below is the study guide for subject: {state['subject']}, topic: {state['topic']}",
@@ -125,26 +128,23 @@ class StudyGuideSupervisorAgent:
                 ]
             }
         else:
-            return {"tutor_content": tutor_content, "study_guide": None}
+
+            return {
+                "messages": ["No study guide found for subject: " + state["subject"] + ", topic: " + state["topic"]],
+                "tutor_content": tutor_content, "study_guide": None,
+            }
 
     def study_guide_builder(self, state: State) -> Command[Literal["supervisor", END]]:
         """Generate a study guide for a given subject and topic."""
-
-        system_prompt = get_instructions("study_guide_builder")
-        messages = [
-                       {"role": "system", "content": system_prompt},
-                   ] + state["messages"]
-        messages.append({"role": "user",
-                         "content": f"Create a study guide for subject=`{state["subject"]}` and topic=`{state["topic"]}`. About half page long."})
-
-        model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
-
-        response = model.invoke(messages)
+        response = invoke_study_guide_builder_agent(
+            state["subject"], state["topic"], state.get("progress_summary"), state["messages"]
+        )
 
         tutor_content = state.get("tutor_content", TutorContent(subjects={}))
         topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
-        topic.study_guide = response.content
-        # Don't know of a better place to do this. This node should be a update_topic
+        topic.study_guide = response.text
+        topic.audio_file_location = response.audio_file_location
+        # Update level when building study guide after progress update
         if state.get("level"):
             topic.level = state["level"]
 
@@ -152,11 +152,12 @@ class StudyGuideSupervisorAgent:
             update={
                 "tutor_content": state["tutor_content"],
                 "study_guide": topic.study_guide,
+                "audio_file_location": topic.audio_file_location,
                 "level": topic.level,
                 "messages": [
                     HumanMessage(content="The following message is from study_guide_builder",
                                  name="study_guide_builder"),
-                    HumanMessage(content=response.content, name="study_guide_builder")
+                    HumanMessage(content=topic.study_guide, name="study_guide_builder")
                 ]
             },
             goto=END

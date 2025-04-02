@@ -10,6 +10,7 @@ class Topic(BaseModel):
     level: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
     summary: str = ""
     study_guide: str = ""
+    audio_file_location: str = ""
 
 
 class Subject(BaseModel):
