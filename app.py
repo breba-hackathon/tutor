@@ -94,9 +94,10 @@ def grade_quiz():
         "correct": data["selected"] == data["answer"],
     }))
 
+    explanation_md = markdown.markdown(explanation)
     return jsonify({
         **data,
-        "correct": data["selected"] == data["answer"], "explanation": explanation
+        "correct": data["selected"] == data["answer"], "explanation": explanation_md
     })
 
 

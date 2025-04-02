@@ -10,7 +10,7 @@
         </div>
     <div class="row align-items-center">
         <div class="col-md-6">
-            <p class="fs-5">{{ text }}</p>
+            <p class="fs-5">{{ text | safe }}</p>
         </div>
     </div>
     <a href="{{ url_for('quiz', subject=subject, topic=topic) }}" class="btn btn-success">Take Quiz</a>

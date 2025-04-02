@@ -34,6 +34,7 @@
                     </div>
                 {% endfor %}
                 <div class="feedback mt-2"></div>
+                <div class="explanation mt-2"></div>
             </div>
         {% endfor %}
     </div>
@@ -87,10 +88,12 @@
             });
 
             const feedback = block.querySelector('.feedback');
+            const explanation = block.querySelector('.explanation');
             if (data.correct) {
                 feedback.innerHTML = '<span class="text-success">✅ Correct!</span>';
             } else {
                 feedback.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}. ${data.explanation}.</span>`;
+                explanation.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}. ${data.explanation}.</span>`;
             }
         }
     </script>
