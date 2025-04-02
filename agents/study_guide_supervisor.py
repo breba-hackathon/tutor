@@ -52,7 +52,7 @@ class State(MessagesState):
     progress_summary: NotRequired[str]
 
 
-class StudyGuideAgent:
+class StudyGuideSupervisorAgent:
     def __init__(self):
         self.supervisor_prompt = get_instructions("study_guide", members=members)
 
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     # start_pub_sub_consumer()
     # listen_to_quiz_question("http://localhost:5005/echo")
 
-    agent = StudyGuideAgent()
+    agent = StudyGuideSupervisorAgent()
     response = agent.grade_quiz_question("John Doe", "What is 2+2? The answer is: 3. This is not correct.")
     print(response)
 
