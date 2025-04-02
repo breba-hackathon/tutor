@@ -23,30 +23,6 @@ class StudyGuide(BaseModel):
 study_guide_builder_agent: CompiledGraph | None = None
 db_schema = None
 
-@tool
-def build_study_guide(subject, topic, progress_summary: str, style: Literal["textbook", "podcast"]):
-    """
-        Generate a study guide text.
-
-        Args:
-            subject (str): The subject name for the study guide.
-            topic (str): the topic name for the study guide.
-            progress_summary (str): A summary of the user's progress or current understanding. If you don't have one pass "No Information Yet"
-            style (Literal["textbook", "podcast"]): The desired style for the study guide
-        """
-    system_prompt = get_instructions("study_guide_builder")
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Progress summary: {progress_summary}"},
-        {"role": "user",
-         "content": f"Create a study guide for subject=`{subject}` and topic=`{topic}`. "
-                    f"The study guide should be written in style of {style}."
-                    f"It should be about half page long or 3 minutes long depending on style provide"},
-    ]
-    model = ChatVertexAI(model_name="gemini-2.0-flash-001", location='us-west1')
-    response = model.invoke(messages)
-    return response.content
-
 
 @tool
 def create_audio_file(username:str, subject_name: str, topic_name: str, text: str):
@@ -95,7 +71,7 @@ def query_database(query: str):
 def init_study_guide_builder_agent():
     global study_guide_builder_agent, db_schema
     db_schema = query_database("SELECT sql FROM sqlite_master WHERE type='table'")
-    tools = [build_study_guide, create_audio_file, query_database]
+    tools = [create_audio_file, query_database]
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     prompt = get_instructions("study_guide_builder_react_prompt")
     study_guide_builder_agent = create_react_agent(
