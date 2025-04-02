@@ -33,7 +33,7 @@ def create_audio_file(username:str, subject_name: str, topic_name: str, text: st
             model="gpt-4o-mini-tts",
             voice="fable",
             input=text,
-            instructions="Speak gently, with a soothing and calm tone to create a relaxed atmosphere."
+            instructions="Speak in an engaging way but also stay calm to give the listener confidence."
             ,
     ) as response:
         # TODO: pass in a callback for writing to a file

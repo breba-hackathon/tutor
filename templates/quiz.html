@@ -92,8 +92,8 @@
             if (data.correct) {
                 feedback.innerHTML = '<span class="text-success">✅ Correct!</span>';
             } else {
-                feedback.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}. ${data.explanation}.</span>`;
-                explanation.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}. ${data.explanation}.</span>`;
+                feedback.innerHTML = `<span class="text-danger">❌ Oops! The correct answer is ${data.answer}.</span>`;
+                explanation.innerHTML = `<span class="text-dark">${data.explanation}.</span>`;
             }
         }
     </script>
