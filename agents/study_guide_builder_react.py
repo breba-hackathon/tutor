@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 from typing import Literal
 
@@ -20,7 +21,7 @@ class StudyGuide(BaseModel):
 
 
 study_guide_builder_agent: CompiledGraph | None = None
-
+db_schema = None
 
 @tool
 def build_study_guide(subject, topic, progress_summary: str, style: Literal["textbook", "podcast"]):
@@ -66,27 +67,54 @@ def create_audio_file(username:str, subject_name: str, topic_name: str, text: st
     return speech_file_path
 
 
-# TODO use tool to pull textbook out of database
+@tool
+def query_database(query: str):
+    """
+    Use this tool to query the database.
+    Query DB schema first to learn about database structure.
+    """
+    # Basic check to ensure only SELECT statements are allowed
+    if not query.strip().lower().startswith("select") and not query.strip().lower().startswith("pragma"):
+        raise ValueError("Only SELECT queries are allowed.")
+
+    conn = sqlite3.connect("study_material.db")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(query)
+        result = cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        result = []
+    finally:
+        conn.close()
+
+    return result
+
 
 def init_study_guide_builder_agent():
-    global study_guide_builder_agent
-    tools = [build_study_guide, create_audio_file]
+    global study_guide_builder_agent, db_schema
+    db_schema = query_database("SELECT sql FROM sqlite_master WHERE type='table'")
+    tools = [build_study_guide, create_audio_file, query_database]
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    prompt = get_instructions("study_guide_builder_react_prompt")
     study_guide_builder_agent = create_react_agent(
         llm, tools, response_format=StudyGuide,
-        prompt="You are an agent trying to generate a study guide given user request. You will do exactly what your told. Don't make anything up.")
+        prompt=prompt)
 
 
 def invoke_study_guide_builder_agent(username: str, subject_name: str, topic_name: str, progress_summary: str,
                                      context: list[AnyMessage],
                                      study_guide_style: Literal["textbook", "podcast"]) -> StudyGuide:
-    messages = context + [
-        {"role": "user", "content": f"Progress summary: {progress_summary}"},
-        {"role": "user",
-         "content": f"For user=`{username}`, Generate a study guide for subject=`{subject_name}` and topic=`{topic_name}`. The study style will be {study_guide_style} and the person will read it."},
-    ]
     if study_guide_builder_agent is None:
         init_study_guide_builder_agent()
+
+    prompt = get_instructions("study_guide_builder_react_prompt", db_schema=db_schema)
+    messages = [{"role": "system", "content": prompt}] + context + [
+        {"role": "user", "content": f"Progress summary: {progress_summary}"},
+        {"role": "user",
+         "content": f"For user=`{username}`, Get book contents from the database and then Generate a study guide for subject=`{subject_name}` and topic=`{topic_name}`. The study style will be {study_guide_style} and the person will read it."},
+    ]
 
     stream = study_guide_builder_agent.stream({"messages": messages}, stream_mode="values")
 
@@ -96,19 +124,10 @@ def invoke_study_guide_builder_agent(username: str, subject_name: str, topic_nam
 
     return state_update.get("structured_response")
 
-
-if __name__ == "main":
+if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
-    input_messages = {"messages": [
-        {"role": "system",
-         "content": get_instructions("study_guide_builder_react_prompt")},
-        # {"role": "user",
-        #  "content": "Generate a study guide for subject=`math` and topic=`algebra`. The study style will be textbook and it will be read by a person."}]}
-        {"role": "user",
-         "content": "Generate a study guide for subject=`math` and topic=`algebra`. The study style will be podcast and the person will listen to it."}]}
-    event = study_guide_builder_agent.invoke(input_messages)
+    result = invoke_study_guide_builder_agent("Yason", "Data Structures", "Heap", "", [], "textbook")
 
-    structured_response = event.get("structured_response")
-    print(structured_response)
+    print(result)

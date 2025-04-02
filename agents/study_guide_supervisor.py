@@ -90,7 +90,7 @@ class StudyGuideSupervisorAgent:
         if state.get("tutor_content"):
             return state
         else:
-            return {"tutor_content": default_tutor_content(state["username"])}
+            return {"tutor_content": default_tutor_content()}
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
         # This allows using deterministic routing, but keeping

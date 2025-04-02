@@ -1,6 +1,5 @@
 import io
 import json
-from pathlib import Path
 
 import markdown
 from dotenv import load_dotenv
@@ -29,7 +28,7 @@ def tutor():
     teaching_style = session.get('teaching_style', None)
 
     stored_tutor_content = study_guide_supervisor_instance.get_tutor_content(username)
-    tutor_content = stored_tutor_content or default_tutor_content(username)
+    tutor_content = stored_tutor_content or default_tutor_content()
 
     return render_template(
         "tutor.html",

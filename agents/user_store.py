@@ -1,3 +1,6 @@
+import sqlite3
+from collections import defaultdict
+
 from model.tutor import TutorContent, Subject, Topic
 
 user_mapping: dict[str, int] = {}
@@ -29,36 +32,30 @@ def get_user_id(thread_id: int):
             return user_id
 
 
-def default_tutor_content(user_id: str) -> TutorContent:
+def default_tutor_content() -> TutorContent:
     """
     Gets data for seeding agent state.
-    :param user_id: Not used for now because it's fake data.
     :return: data for seeding agent state.
     """
-    tutor_content = TutorContent(subjects={
-        "Pre-Algebra": Subject(
-            name="Pre-Algebra",
-            topics={
-                "Integers": Topic(name="Integers"),
-                "Fractions": Topic(name="Fractions"),
-                "Decimals": Topic(name="Decimals"),
-            }
-        ),
-        "Algebra": Subject(
-            name="Algebra",
-            topics={
-                "Linear Equations": Topic(name="Linear Equations"),
-                "Quadratic Equations": Topic(name="Quadratic Equations"),
-                "Exponents": Topic(name="Exponents"),
-            }
-        ),
-        "Geometry": Subject(
-            name="Geometry",
-            topics={
-                "Pythagorean Theorem": Topic(name="Pythagorean Theorem"),
-                "Angles": Topic(name="Angles"),
-                "Circles": Topic(name="Circles"),
-            }
-        ),
-    })
-    return tutor_content
+    conn = sqlite3.connect("study_material.db")
+    cursor = conn.cursor()
+
+    # Dict to build: subject -> topic_name -> Topic instance
+    subjects_dict: dict[str, Subject] = {}
+
+    cursor.execute("SELECT subject, topic FROM topics")
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Organize into your structure
+    subject_topic_map: dict[str, dict[str, Topic]] = defaultdict(dict)
+    for subject, topic in rows:
+        subject_topic_map[subject][topic] = Topic(name=topic)
+
+    for subject_name, topic_dict in subject_topic_map.items():
+        subjects_dict[subject_name] = Subject(
+            name=subject_name,
+            topics=topic_dict
+        )
+
+    return TutorContent(subjects=subjects_dict)
