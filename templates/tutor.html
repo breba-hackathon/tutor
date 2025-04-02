@@ -22,11 +22,11 @@
             <div class="mb-3">
                 <label class="form-label">Select Teaching Style:</label>
                 <div>
-                    <input type="radio" id="visual" name="teaching_style" value="visual"  {% if teaching_style == 'visual' or not teaching_style %}checked{% endif %}>
+                    <input type="radio" id="visual" name="teaching_style" value="textbook"  {% if teaching_style == 'textbook' or not teaching_style %}checked{% endif %}>
                     <label for="visual">Visual</label>
                 </div>
                 <div>
-                    <input type="radio" id="audio" name="teaching_style" value="audio" {% if teaching_style == 'audio' %}checked{% endif %}>
+                    <input type="radio" id="audio" name="teaching_style" value="podcast" {% if teaching_style == 'podcast' %}checked{% endif %}>
                     <label for="audio">Audio</label>
                 </div>
             </div>

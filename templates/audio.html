@@ -3,14 +3,16 @@
 {% block title %}Audio Lesson{% endblock %}
 
 {% block content %}
-    <div class="row align-items-center">
-        <div class="col-md-6">
-            <p class="fs-5">Sample Text</p>
-        </div>
-        <div class="col-md-6">
+    <div class="col-md-6">
             <audio controls>
-                <source src="/audio/lesson.mp3" type="audio/mpeg">
+                <source src="{{ url_for('serve_audio', file_name=file_path) }}" type="audio/mpeg">
             </audio>
         </div>
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <p class="fs-5">{{ text }}</p>
+        </div>
     </div>
+    <a href="{{ url_for('quiz', subject=subject, topic=topic) }}" class="btn btn-success">Take Quiz</a>
+    <a href="{{ url_for('tutor') }}" class="btn btn-secondary ms-2">Back to Topics</a>
 {% endblock %}

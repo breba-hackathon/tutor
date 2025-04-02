@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, NotRequired
+from typing import Literal, TypedDict, NotRequired, TypeAlias
 
 from langchain_core.messages import HumanMessage
 from langchain_google_vertexai import ChatVertexAI
@@ -40,17 +40,22 @@ class Route(TypedDict):
     next: Literal[*options]
 
 
+StudyGuidStyleType: TypeAlias = Literal["podcast", "textbook"]
+LevelType: TypeAlias = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+
 class State(MessagesState):
     username: str
     tutor_content: NotRequired[TutorContent]
     study_guide: NotRequired[str]
+    study_guide_style: NotRequired[StudyGuidStyleType]
     audio_file_location: NotRequired[str]
     quiz_question: NotRequired[QuizQuestion]
     question_to_grade: NotRequired[str]
     explanation: NotRequired[str]
     subject: NotRequired[str]
     topic: NotRequired[str]
-    level: NotRequired[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+    level: NotRequired[LevelType]
     progress_summary: NotRequired[str]
 
 
@@ -137,12 +142,17 @@ class StudyGuideSupervisorAgent:
     def study_guide_builder(self, state: State) -> Command[Literal["supervisor", END]]:
         """Generate a study guide for a given subject and topic."""
         response = invoke_study_guide_builder_agent(
-            state["subject"], state["topic"], state.get("progress_summary"), state["messages"]
+            state["username"],
+            state["subject"],
+            state["topic"],
+            state.get("progress_summary"),
+            state["messages"],
+            state.get("study_guide_style", "textbook")
         )
 
         tutor_content = state.get("tutor_content", TutorContent(subjects={}))
         topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
-        topic.study_guide = response.text
+        topic.study_guide = response.study_guide_text
         topic.audio_file_location = response.audio_file_location
         # Update level when building study guide after progress update
         if state.get("level"):
@@ -222,13 +232,16 @@ class StudyGuideSupervisorAgent:
 
         return Command(goto=END)
 
-    def find_existing_study_guide_or_create(self, username: str, subject: str, topic: str):
+    def find_existing_study_guide_or_create(self, username: str, subject: str, topic: str,
+                                            style: StudyGuidStyleType) -> State:
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
-            "username": username, "subject": subject, "topic": topic,
+            "username": username, "subject": subject, "topic": topic, "study_guide_style": style,
             "messages": [{"role": "user", "content": EXISTING_STUDY_GUIDE}]
         }, config)
-        return final_state["study_guide"]
+        # TODO: if style == "podcast" and no audio file, ask to create one again
+
+        return final_state
 
     def build_quiz_question(self, username: str) -> QuizQuestion:
         config = {"configurable": {"thread_id": get_thread_id(username)}}
@@ -260,7 +273,7 @@ class StudyGuideSupervisorAgent:
     def update_study_guides(self, event: StudyProgressEvent) -> str:
         config = {"configurable": {"thread_id": get_thread_id(event.username)}}
         final_state = self.graph.invoke({
-            "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level,
+            "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level, "progress_summary": event.update,
             "messages": [{"role": "user",
                           "content": f"When building a study guide for subject: {event.subject}, topic: {event.topic}, take into account this progress update: {event.update}"},
                          {"role": "user", "content": STUDY_GUIDE_BUILDER}]

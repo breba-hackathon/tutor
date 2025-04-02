@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 
 import markdown
 from dotenv import load_dotenv
@@ -57,10 +58,18 @@ def study_guide():
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
     username = session.get('username', "Anonymous")
+    style = session['teaching_style']
 
-    guide_markdown = study_guide_supervisor_instance.find_existing_study_guide_or_create(username, subject, topic)
-    guide_html = markdown.markdown(guide_markdown)
-    return render_template("study_guide.html", subject=subject, topic=topic, study_guide=guide_html)
+    response = study_guide_supervisor_instance.find_existing_study_guide_or_create(username, subject, topic, style)
+    if style == "textbook":
+        guide_markdown = response["study_guide"]
+        guide_html = markdown.markdown(guide_markdown)
+        return render_template("study_guide.html", subject=subject, topic=topic, study_guide=guide_html)
+    else:
+        audio_file_path = response.get("audio_file_location", "")
+        guide_markdown = response.get("study_guide")
+        guide_html = markdown.markdown(guide_markdown)
+        return render_template("audio.html", subject=subject, topic=topic, file_path=audio_file_path, text=guide_html)
 
 
 @app.route("/quiz")
@@ -97,9 +106,9 @@ def audio():
     return render_template('audio.html')
 
 
-@app.route('/audio/lesson.mp3')
-def serve_audio():
-    with open("audio/lesson.mp3", "rb") as f:
+@app.route('/audio/files/<path:file_name>')
+def serve_audio(file_name):
+    with open(f"{file_name}", "rb") as f:
         audio_data = f.read()
     return send_file(io.BytesIO(audio_data), mimetype="audio/mpeg")
 
