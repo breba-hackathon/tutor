@@ -1,9 +1,6 @@
 # tutor
 AI Agents for Personalized Learning &amp; Tutoring
 
-## Architecture
-![Architecture Diagram](images/flowchart.png)
-
 ## Features
 <table border="1" cellspacing="0" cellpadding="6">
   <thead>
@@ -80,3 +77,10 @@ Generate a service account key:
 gcloud iam service-accounts keys create key.json \
   --iam-account=$SERVICE_ACCOUNT_NAME
 ``` 
+
+## Presentation
+
+[Link to the presentation](./presentation/Tutor Agent Presentation.pptx)
+
+## Architecture
+![Architecture Diagram](images/flowchart.png)

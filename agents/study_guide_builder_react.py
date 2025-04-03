@@ -4,7 +4,6 @@ from typing import Literal
 
 from langchain_core.messages import AnyMessage
 from langchain_core.tools import tool
-from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 from langgraph.graph.graph import CompiledGraph
 from langgraph.prebuilt import create_react_agent
