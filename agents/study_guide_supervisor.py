@@ -182,6 +182,7 @@ class StudyGuideSupervisorAgent:
         messages = [
                        {"role": "system", "content": system_prompt},
                    ] + state["messages"]
+        messages.append({"role": "user", "content": f"Given the study guide: {state['study_guide']}"})
         messages.append({"role": "user",
                          "content": f"Create a quiz question for the study guide. Make the difficulty level {state.get('level')} out of 10"})
         model = ChatOpenAI(model="gpt-4o")
@@ -209,7 +210,7 @@ class StudyGuideSupervisorAgent:
                    ] + state["messages"]
         messages.append(
             {"role": "user", "content": "Provide an explanation for this question: " + state["question_to_grade"]})
-        model = ChatVertexAI(model_name="gemini-1.5-pro", location='us-west1')
+        model = ChatOpenAI(model="gpt-4o", temperature=0)
 
         explanation_response = model.invoke(messages)
 
