@@ -17,7 +17,7 @@ AI Agents for Personalized Learning &amp; Tutoring
     <tr><td>Different teaching styles</td><td>✅</td><td>Suport for textbook and podcast style</td></tr>
     <tr><td>Agents collaborate</td><td>✅</td><td>Study guides are asynchronously updated on every quiz answer</td></tr>
     <tr><td>Suggest interdisciplinary connections between topics</td><td>❌</td><td>Setup to update topic study guides, but LLM to recommend which study guides to update is not implemented</td></tr>
-    <tr><td>Interactive exercises</td><td>❌</td><td>Can make interactive study guide</td></tr>
+    <tr><td>Interactive exercises</td><td>✅</td><td>Selecting text in study guide allows to ask questions about the selected text</td></tr>
     <tr><td>Quizzes</td><td>✅</td><td></td></tr>
     <tr><td>Gamification elements</td><td>✅</td><td>Difficulty level grows with every question answered correctly. Or it falls if question is answered incorrectly. Agent decides when and by how much to increase the level of difficulty given all the questions answered so far </td></tr>
     <tr><td>Event-driven patterns</td><td>✅</td><td>Study Guide Agent sends quiz answers to --> Study Progress summarizes weaknesses and user proficiency level --> Study Guide Agent generates new study guide and quiz questions best on weaknesses and user proficiency level</td></tr>
