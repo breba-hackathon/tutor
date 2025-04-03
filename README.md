@@ -54,7 +54,7 @@ After clicking the link, click the download button at the top right corner.
 [Link to the demo](./presentation/demo.mp4)
 
 ## Architecture
-![Architecture Diagram](images/flowchart.png)
+![Architecture Diagram](images/flowchart2.png)
 
 
 ## Obsolete Google Cloud instructions (Since I'm not using Google Cloud Services anymore should not be needed)
