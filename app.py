@@ -24,6 +24,9 @@ start_pub_sub_consumer()
 
 @app.route("/")
 def tutor():
+    """
+    This is the home page that displays login form and tutor content. The tutor content comes from agent state
+    """
     username = session.get('username', None)
     teaching_style = session.get('teaching_style', None)
 
@@ -40,6 +43,9 @@ def tutor():
 
 @app.route("/login", methods=["POST"])
 def login():
+    """
+    This is the login endpoint that saves the username and teaching style to the session
+    """
     data = request.get_json()  # Expecting JSON from JS fetch
 
     username = data.get('username')
@@ -54,6 +60,9 @@ def login():
 
 @app.route("/study_guide")
 def study_guide():
+    """
+    This endpoint displays the study guide. Both textbook style and podcast style study guides are supported
+    """
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
     username = session.get('username', "Anonymous")
@@ -73,6 +82,10 @@ def study_guide():
 
 @app.route("/quiz")
 def quiz():
+    """
+    This is the quiz page that displays a question and some options
+    :return:
+    """
     subject = request.args.get("subject", "Unknown Subject")
     topic = request.args.get("topic", "Unknown Topic")
 
@@ -86,6 +99,9 @@ def quiz():
 
 @app.route("/grade_quiz", methods=["POST"])
 def grade_quiz():
+    """
+    This endpoint provides correctness of the user answer and an explanation.
+    """
     data = request.get_json()
 
     explanation = study_guide_supervisor_instance.grade_quiz_question(session.get('username', "Anonymous"), json.dumps({
@@ -102,6 +118,10 @@ def grade_quiz():
 
 @app.route("/explain", methods=["POST"])
 def explain():
+    """
+    This endpoint allows the user to ask the system to do things.
+    DANGER: hidden from user capabilities may be accessed
+    """
     data = request.get_json()
     query = data.get("query")
     selection = data.get("selection")
@@ -116,6 +136,11 @@ def explain():
 
 @app.route('/audio/files/<path:file_name>')
 def serve_audio(file_name):
+    """
+    This endpoint returns an audio file at the specified location.
+    :param file_name: location of the audio file
+    :return:
+    """
     with open(f"{file_name}", "rb") as f:
         audio_data = f.read()
     return send_file(io.BytesIO(audio_data), mimetype="audio/mpeg")
@@ -123,6 +148,14 @@ def serve_audio(file_name):
 
 @app.route('/agent/update_progress', methods=["POST"])
 def update_progress():
+    """
+    This endpoint is used for communicating to the progress update agent.
+    data.args:
+         username (str): Used to determine which progress agent to update
+         quiz_question (str): The question to be added to the progress agent
+         subject (str): The subject of the question
+         topic (str): The topic of the question
+    """
     data = request.get_json()
     progress_agent.inject_graded_quiz_question(data["username"], data["quiz_question"], data["subject"], data["topic"])
 
@@ -131,6 +164,15 @@ def update_progress():
 
 @app.route('/agent/update_study_guides', methods=["POST"])
 def update_study_guides():
+    """
+    This endpoint is used for communicating to the study guide supervisor agent
+    data.args:
+        username (str): Used to determine which progress agent to update
+        subject (str): The subject of the question
+        topic (str): The topic of the question
+        update (str): The update request for the study guide agent
+        level (int): The level of the user
+    """
     data = request.get_json()
     event = StudyProgressEvent(**data)
     study_guide_supervisor_instance.update_study_guides(event)
