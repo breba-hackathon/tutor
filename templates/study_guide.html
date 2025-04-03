@@ -3,9 +3,71 @@
 {% block title %}{{ topic }} Study Guide{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    {{ study_guide | safe }}
-</div>
-<a href="{{ url_for('quiz', subject=subject, topic=topic) }}" class="btn btn-success">Take Quiz</a>
-<a href="{{ url_for('tutor') }}" class="btn btn-secondary ms-2">Back to Topics</a>
+    <div class="mb-4">
+        {{ study_guide | safe }}
+    </div>
+    <a href="{{ url_for('quiz', subject=subject, topic=topic) }}" class="btn btn-success">Take Quiz</a>
+    <a href="{{ url_for('tutor') }}" class="btn btn-secondary ms-2">Back to Topics</a>
+    <!-- Popup UI -->
+    <div id="popup"
+         style="display:none; position:absolute; z-index:1000; background:white; border:1px solid #ccc; padding:10px; border-radius:8px; width:600px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+        <div id="popup-response" style="margin-bottom:8px; font-size:0.9rem; color:#333;"></div>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="popup-input" placeholder="Type your request. e.g. Explain" class="form-control"/>
+            <button id="popup-submit" class="btn btn-sm btn-primary">→</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("mouseup", function (e) {
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            const clickedInsidePopup = popup.contains(e.target);
+
+            if (selectedText.length > 0) {
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+
+                const popup = document.getElementById("popup");
+                popup.style.top = `${window.scrollY + rect.bottom + 5}px`;
+                popup.style.left = `${window.scrollX + rect.left}px`;
+                popup.style.display = "block";
+
+                popup.dataset.selection = selectedText;
+                setTimeout(() => {
+                    document.getElementById("popup-input").focus();
+                }, 0);
+            } else if (!clickedInsidePopup) {
+                document.getElementById("popup-input").value = "";
+                document.getElementById("popup-response").innerHTML = "";
+                document.getElementById("popup").style.display = "none";
+            }
+        });
+
+        document.getElementById("popup-submit").addEventListener("click", async function () {
+            const input = document.getElementById("popup-input").value;
+            const selectedText = document.getElementById("popup").dataset.selection;
+
+            const responseDiv = document.getElementById("popup-response");
+            responseDiv.textContent = "Loading...";
+
+            try {
+                const response = await fetch("/explain", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        query: input,
+                        selection: selectedText,
+                    }),
+                });
+
+                const data = await response.json();
+                responseDiv.innerHTML = data.response || "No response.";
+            } catch (err) {
+                responseDiv.textContent = "Error getting response.";
+            }
+        });
+    </script>
 {% endblock %}

@@ -100,10 +100,18 @@ def grade_quiz():
     })
 
 
+@app.route("/explain", methods=["POST"])
+def explain():
+    data = request.get_json()
+    query = data.get("query")
+    selection = data.get("selection")
+    message = (f"The user selected the following text from the study guide: {selection}. "
+               f"The user asked the following question about the selected text: {query}. Respond in plain text")
 
-@app.route('/audio')
-def audio():
-    return render_template('audio.html')
+    response = study_guide_supervisor_instance.invoke(session.get('username', "Anonymous"), message)
+    html = markdown.markdown(response)
+
+    return jsonify({"response": html})
 
 
 @app.route('/audio/files/<path:file_name>')

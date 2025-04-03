@@ -22,7 +22,8 @@ STUDY_GUIDE_BUILDER = "study_guide_builder"
 EXISTING_STUDY_GUIDE = "existing_study_guide"
 QUIZ_QUESTION_BUILDER = "quiz_question_builder"
 QUIZ_GRADER = "quiz_grader"
-members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER, EXISTING_STUDY_GUIDE]
+GENERAL_CHAT_AGENT = "general_chat_agent"
+members = [STUDY_GUIDE_BUILDER, QUIZ_QUESTION_BUILDER, QUIZ_GRADER, EXISTING_STUDY_GUIDE, GENERAL_CHAT_AGENT]
 
 options = members + ["FINISH"]
 
@@ -61,7 +62,7 @@ class State(MessagesState):
 
 class StudyGuideSupervisorAgent:
     def __init__(self):
-        self.supervisor_prompt = get_instructions("study_guide", members=members)
+        self.supervisor_prompt = get_instructions("study_guide_supervisor", members=members)
 
         # Setup persistence
         checkpointer = MemorySaver()
@@ -75,6 +76,7 @@ class StudyGuideSupervisorAgent:
         builder.add_node(self.existing_study_guide)
         builder.add_node(self.quiz_question_builder)
         builder.add_node(self.quiz_grader)
+        builder.add_node(self.general_chat_agent)
         builder.add_node(self.publish_quiz_question)
         builder.add_edge(START, "init_data")
         builder.add_edge("init_data", "supervisor")
@@ -220,6 +222,26 @@ class StudyGuideSupervisorAgent:
             ]
         }
 
+    def general_chat_agent(self, state: State) -> Command[Literal["supervisor"]]:
+        """Can respond to miscellaneous questions and other inquires"""
+        system_prompt = "You are a helpful assistant. You are providing responses to user inquires based on the study guide and other information that you have."
+        messages = [
+                       {"role": "system", "content": system_prompt},
+                   ] + state["messages"]
+
+        model = ChatOpenAI(model="gpt-4o", temperature=0.2)
+
+        chat_response = model.invoke(messages)
+
+        update_messages = {"messages": [
+            HumanMessage(content="The following message is from general_chat_agent",
+                         name="general_chat_agent"),
+            HumanMessage(content=chat_response.content, name="general_chat_agent")
+        ]
+        }
+
+        return Command(update=update_messages, goto=END)
+
     def publish_quiz_question(self, state: State) -> Command[Literal["supervisor"]]:
         """
         Publishes the quiz question/answer and explanation to other agents
@@ -273,7 +295,8 @@ class StudyGuideSupervisorAgent:
     def update_study_guides(self, event: StudyProgressEvent) -> str:
         config = {"configurable": {"thread_id": get_thread_id(event.username)}}
         final_state = self.graph.invoke({
-            "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level, "progress_summary": event.update,
+            "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level,
+            "progress_summary": event.update,
             "messages": [{"role": "user",
                           "content": f"When building a study guide for subject: {event.subject}, topic: {event.topic}, take into account this progress update: {event.update}"},
                          {"role": "user", "content": STUDY_GUIDE_BUILDER}]
