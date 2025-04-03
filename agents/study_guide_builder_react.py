@@ -24,7 +24,7 @@ db_schema = None
 
 
 @tool
-def create_audio_file(username:str, subject_name: str, topic_name: str, text: str):
+def create_audio_file(username: str, subject_name: str, topic_name: str, text: str):
     """create audio file for podcast style study guide"""
     client = OpenAI()
 
@@ -36,7 +36,7 @@ def create_audio_file(username:str, subject_name: str, topic_name: str, text: st
             ,
     ) as response:
         # TODO: pass in a callback for writing to a file
-        speech_file_path =  f"audio/{username}_{subject_name}_{topic_name}.mp3"
+        speech_file_path = f"audio/{username}_{subject_name}_{topic_name}.mp3"
         print(f"Writing audio to {speech_file_path}")
         response.stream_to_file(Path.cwd() / speech_file_path)
     return speech_file_path
@@ -102,7 +102,7 @@ def invoke_study_guide_builder_agent(username: str, subject_name: str, topic_nam
     messages = [{"role": "system", "content": prompt}] + context + [
         {"role": "user", "content": f"Progress summary: {progress_summary}"},
         {"role": "user",
-         "content": f"For user=`{username}`, Get book contents from the database and then Generate a study guide for subject=`{subject_name}` and topic=`{topic_name}`. The study style will be {study_guide_style} and the person will read it."},
+         "content": f"For user=`{username}`, Get book contents from the database and then Generate a study guide for subject=`{subject_name}` and topic=`{topic_name}`. The study style will be {study_guide_style} and the person will read it. Make sure to update the current study guide to reflect weaknesses in the Progress summary. But don't refer to them as weaknesses, call them Focus Areas. You don't need to generate a new subsection, can address focus areas inline"},
     ]
 
     stream = study_guide_builder_agent.stream({"messages": messages}, stream_mode="values")
@@ -112,6 +112,7 @@ def invoke_study_guide_builder_agent(username: str, subject_name: str, topic_nam
         state_update["messages"][-1].pretty_print()
 
     return state_update.get("structured_response")
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
