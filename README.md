@@ -31,18 +31,33 @@ AI Agents for Personalized Learning &amp; Tutoring
 
 ## Setup instructions
 ### Pre-requisites
-Setup Kafka and run the server
+#### Setup Kafka and run the server
 ```bash
 docker pull apache/kafka:4.0.0
 docker run -p 9092:9092 apache/kafka:4.0.0
 ```
 
-
-Copy the .env.sample to .env, and then fill it out as you complete the instructions
+#### Copy the .env.sample to .env, and DON'T FORGET to fill it out. Currently I'm using only OpenAI models, so likely only need to fill out the OPENAI_API_KEY.
 ```bash
 cp .env.sample .env
 ```
 
+## Running the app
+```
+pip install -r requirements.txt
+python app.py   
+```
+## Presentation
+
+After clicking the link, click the download button at the top right corner.
+[Link to the presentation](./presentation/Tutor%20Agent%20Presentation.pptx)
+[Link to the demo](./presentation/demo.mp4)
+
+## Architecture
+![Architecture Diagram](images/flowchart.png)
+
+
+## Obsolete Google Cloud instructions (Since I'm not using Google Cloud Services anymore should not be needed)
 
 ```bash
 gcloud config set project <PROJECT_ID>
@@ -77,12 +92,3 @@ Generate a service account key:
 gcloud iam service-accounts keys create key.json \
   --iam-account=$SERVICE_ACCOUNT_NAME
 ``` 
-
-## Presentation
-
-After clicking the link, click the download button at the top right corner.
-[Link to the presentation](./presentation/Tutor%20Agent%20Presentation.pptx)
-[Link to the demo](./presentation/demo.mp4)
-
-## Architecture
-![Architecture Diagram](images/flowchart.png)
