@@ -80,7 +80,7 @@ gcloud iam service-accounts keys create key.json \
 
 ## Presentation
 
-[Link to the presentation](./presentation/Tutor Agent Presentation.pptx)
+[Link to the presentation](./presentation/Tutor%20Agent%20Presentation.pptx)
 
 ## Architecture
 ![Architecture Diagram](images/flowchart.png)
