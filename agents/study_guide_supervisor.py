@@ -18,6 +18,7 @@ from services.agent_pub_sub import update_quiz_question, QuizQuestionEvent, list
 # This will listen to study_progress topic and call the endpoint specified
 listen_to_study_progress("http://localhost:5005/agent/update_study_guides")
 
+# Define deterministic routes for each member
 STUDY_GUIDE_BUILDER = "study_guide_builder"
 EXISTING_STUDY_GUIDE = "existing_study_guide"
 QUIZ_QUESTION_BUILDER = "quiz_question_builder"
@@ -29,7 +30,11 @@ options = members + ["FINISH"]
 
 
 class QuizQuestion(BaseModel):
+    """
+    Data structure for creating a quiz question
+    """
     question: str = Field(description="The question itself")
+    # min_items is not supported by OpenAI models
     # options: list[str] = Field(description="List of exactly 4 options", min_items=4, max_items=4)
     options: list[str] = Field(description="List of exactly 4 options")
     answer: Literal["A", "B", "C", "D"] = Field(description="The correct answer letter")
@@ -37,6 +42,9 @@ class QuizQuestion(BaseModel):
 
 
 class Route(TypedDict):
+    """
+    Routing for the supervisor node
+    """
     reason: str
     next: Literal[*options]
 
@@ -61,6 +69,10 @@ class State(MessagesState):
 
 
 class StudyGuideSupervisorAgent:
+    """
+    This agent is responsible for creating study guides, quiz questions, and grading quiz questions.
+    """
+
     def __init__(self):
         self.supervisor_prompt = get_instructions("study_guide_supervisor", members=members)
 
@@ -89,12 +101,19 @@ class StudyGuideSupervisorAgent:
         self.graph = builder.compile(checkpointer=checkpointer)
 
     def init_data(self, state: State):
+        """
+        This node is used to initialize the state.
+        """
         if state.get("tutor_content"):
             return state
         else:
             return {"tutor_content": default_tutor_content()}
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
+        """
+        This node routes our request to sub agents. Although most are just LLM driven at this point, but should probably be
+        properly encapsulated agents.
+        """
         # This allows using deterministic routing, but keeping
         if state["messages"][-1].content in members:
             goto = state["messages"][-1].content
@@ -111,6 +130,9 @@ class StudyGuideSupervisorAgent:
         return Command(goto=goto, update={"next": goto})
 
     def has_study_guide(self, state: State) -> bool:
+        """
+        Edge condition to check if we found a study guide
+        """
         return state.get("study_guide") is not None
 
     def existing_study_guide(self, state: State):
@@ -152,6 +174,7 @@ class StudyGuideSupervisorAgent:
             state.get("study_guide_style", "textbook")
         )
 
+        # Loads up the tutor content data for the user into the state. Should move to init_data
         tutor_content = state.get("tutor_content", TutorContent(subjects={}))
         topic = tutor_content.find_or_create_topic(state["subject"], state["topic"])
         topic.study_guide = response.study_guide_text
@@ -176,8 +199,9 @@ class StudyGuideSupervisorAgent:
         )
 
     def quiz_question_builder(self, state: State) -> Command[Literal["supervisor"]]:
-        """Generate a quiz question when requested"""
-
+        """
+        Generate a quiz question when requested
+        """
         system_prompt = "You are providing a multiple choice question for a study guide mentioned earlier. You will provide 4 options and the correct answer. But do not repeat questions. Every time come up with a new question. For math questions use numbers and symbols more than words, but throw in a word problem sometimes."
         messages = [
                        {"role": "system", "content": system_prompt},
@@ -257,6 +281,14 @@ class StudyGuideSupervisorAgent:
 
     def find_existing_study_guide_or_create(self, username: str, subject: str, topic: str,
                                             style: StudyGuidStyleType) -> State:
+        """
+        Entry point for deterministic route to find an existing study guide or to create it.
+        Args:
+            username: for whom we need the study guide
+            subject: subject of the study guide
+            topic: topic of the study guide
+            style: style of the study guide
+        """
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "username": username, "subject": subject, "topic": topic, "study_guide_style": style,
@@ -267,6 +299,11 @@ class StudyGuideSupervisorAgent:
         return final_state
 
     def build_quiz_question(self, username: str) -> QuizQuestion:
+        """
+        Entry point for deterministic route to build a quiz question
+        Args:
+            username: need to load state of the agent
+        """
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "messages": [{"role": "user", "content": QUIZ_QUESTION_BUILDER}]
@@ -274,6 +311,12 @@ class StudyGuideSupervisorAgent:
         return final_state["quiz_question"]
 
     def invoke(self, username: str, user_input: str):
+        """
+        Entry point for non-deterministic route
+        Args:
+            username: need to load state of the agent
+            user_input: string query for user
+        """
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "messages": [{"role": "user", "content": user_input}]
@@ -294,6 +337,11 @@ class StudyGuideSupervisorAgent:
         return final_state["messages"][-1].content
 
     def update_study_guides(self, event: StudyProgressEvent) -> str:
+        """
+        Entry point for updating study guides. At this time updates only the current study guide
+        Args:
+            event (StudyProgressEvent): event containing data for our updates
+        """
         config = {"configurable": {"thread_id": get_thread_id(event.username)}}
         final_state = self.graph.invoke({
             "username": event.username, "subject": event.subject, "topic": event.topic, "level": event.level,
@@ -305,6 +353,11 @@ class StudyGuideSupervisorAgent:
         return final_state["study_guide"]
 
     def get_tutor_content(self, username: str) -> TutorContent:
+        """
+        Gets tutor content from the agent state. Since the agent is our primary data store, this is needed.
+        Args:
+            username: need to load state of the agent
+        """
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         content = self.graph.get_state(config).values.get("tutor_content")
         return content

@@ -68,6 +68,10 @@ def query_database(query: str):
 
 
 def init_study_guide_builder_agent():
+    """
+    Initialize the study guide builder agent by giving it llm, tools, and prompt.
+    (prompt seems to be not processed correctly, so we will pass it in later as well)
+    """
     global study_guide_builder_agent, db_schema
     db_schema = query_database("SELECT sql FROM sqlite_master WHERE type='table'")
     tools = [create_audio_file, query_database]
@@ -81,6 +85,16 @@ def init_study_guide_builder_agent():
 def invoke_study_guide_builder_agent(username: str, subject_name: str, topic_name: str, progress_summary: str,
                                      context: list[AnyMessage],
                                      study_guide_style: Literal["textbook", "podcast"]) -> StudyGuide:
+    """
+    Invoke the study guide builder agent to generate a study guide.
+    Args:
+        username: The username for whom the study guide is being generated.
+        subject_name: The subject of the study guide.
+        topic_name: The topic of the study guide.
+        progress_summary: The progress summary of the user, subject, topic combo.
+        context: The context of the conversation.
+        study_guide_style: The style of the study guide (textbook or podcast).
+    """
     if study_guide_builder_agent is None:
         init_study_guide_builder_agent()
 

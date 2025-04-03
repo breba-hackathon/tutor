@@ -69,6 +69,11 @@ class StudyProgressAgent:
         return {"subjects": subjects}
 
     def progress_update(self, state: State):
+        """
+        This node actually performs the study progress update
+        :param state:
+        :return:
+        """
         subjects = state["subjects"]
         current_topic = subjects.get(state["subject"]).topics.get(state["topic"])
         prompt = get_instructions("progress_update",
@@ -86,6 +91,9 @@ class StudyProgressAgent:
         return {"subjects": subjects}
 
     def publish_update(self, state: State):
+        """
+        This node publishes the study progress update so that other agents can consume it
+        """
         subjects = state["subjects"]
         topic = subjects.get(state["subject"]).topics.get(state["topic"])
         update_study_progress(
@@ -95,6 +103,14 @@ class StudyProgressAgent:
         return state
 
     def inject_graded_quiz_question(self, username: str, graded_quiz_question: str, subject: str, topic: str):
+        """
+        This node injects the graded quiz question into the state. The quiz questions are coming from quiz grader
+        Args:
+            username: username used to load agent state
+            graded_quiz_question: the graded quiz question that will be injected into this agent's state
+            subject: subject for the graded quiz question
+            topic: topic for the graded quiz question
+        """
         config = {"configurable": {"thread_id": get_thread_id(username)}}
         final_state = self.graph.invoke({
             "username": username,
