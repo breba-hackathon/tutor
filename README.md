@@ -80,6 +80,7 @@ gcloud iam service-accounts keys create key.json \
 
 ## Presentation
 
+After clicking the link, click the downlaod button at the top right corner.
 [Link to the presentation](./presentation/Tutor%20Agent%20Presentation.pptx)
 
 ## Architecture
